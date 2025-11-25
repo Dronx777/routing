@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Мобильный навигатор (без симуляции)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+  html,body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+  #map { height:100vh; width:100vw; }
+  #file-input {
+    position: absolute;
+    z-index: 1200;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 10px;
+    background: #fff;
+    padding: 8px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    max-width: calc(100% - 20px);
+  }
+  #file-input input[type=file] { font-size:14px; }
+  #file-input button {
+    font-size:15px;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    background:#f7f7f7;
+  }
+  #info-box {
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  z-index:1000; background:rgba(255,255,255,0.95); padding:10px 15px; border-radius:8px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.3); min-width:180px; text-align:center; font-size:16px;
+  }
+  .leaflet-bottom .leaflet-control-zoom { top:50%; bottom:auto; transform: translateY(-50%); }
+  @media (max-width:420px){
+    #file-input { gap:6px; padding:6px; }
+    #file-input button { padding:8px 6px; font-size:14px; }
+    #info-box { font-size:13px; min-width:120px; padding:8px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="file-input">
+  <input type="file" id="csvFile" accept=".csv" />
+  <button id="locBtn" type="button">Определить GPS</button>
+  <button id="clearBtn" type="button">Очистить</button>
+</div>
+
+<div id="info-box">
+  <b>Маршрут</b><br>
+  <span id="info-distance">Длина: —</span><br>
+  <span id="info-duration">Время: —</span>
+</div>
+
+<div id="map"></div>
+
+<script>
+/* ==== Настройки карты ==== */
+const defaultCenter = [51.16, 71.47];
+const defaultZoom = 12;
+const map = L.map('map', { zoomControl: false }).setView(defaultCenter, defaultZoom);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+/* ==== Слои и переменные ==== */
+let csvMarkersLayer = L.layerGroup().addTo(map);
+let routeLayer = L.layerGroup().addTo(map);
+let followLineLayer = L.layerGroup().addTo(map);
+
+let userCoords = null;
+let userMarker = null;
+let watchId = null;
+
+let routePointsArray = [];
+
+const infoDistanceEl = document.getElementById('info-distance');
+const infoDurationEl = document.getElementById('info-duration');
+
+/* ==== Функция центрирования при наличии пользователя ==== */
+function centerOnUser(zoom = 15) {
+  if (userCoords) map.setView(userCoords, zoom);
+}
+
+/* ==== Обработчик результата геопозиции ==== */
+function updateUserPosition(position) {
+  userCoords = [position.coords.latitude, position.coords.longitude];
+
+  if (!userMarker) {
+    userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
+  } else {
+    userMarker.setLatLng(userCoords);
+  }
+
+  // открываем popup и центрируем
+  userMarker.openPopup();
+  centerOnUser(15);
+
+  // если маршрут есть — рисуем оставшуюся линию
+  if (routePointsArray && routePointsArray.length) {
+    // Находим ближайшую точку маршрута (евклидово грубо в градусах)
+    let nearestIndex = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < routePointsArray.length; i++) {
+      const dLat = routePointsArray[i][0] - userCoords[0];
+      const dLon = routePointsArray[i][1] - userCoords[1];
+      const dist = dLat * dLat + dLon * dLon;
+      if (dist < minDist) { minDist = dist; nearestIndex = i; }
+    }
+
+    followLineLayer.clearLayers();
+    const remaining = [ userCoords, ...routePointsArray.slice(nearestIndex) ];
+    L.polyline(remaining, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
+  }
+}
+
+/* ==== Функция запроса разрешения — ВЫЗЫВАЕТСЯ ТОЛЬКО ПО КЛИКУ ==== */
+function requestUserLocation() {
+  if (!navigator.geolocation) {
+    alert('Геолокация не поддерживается этим устройством.');
+    return;
+  }
+
+  // getCurrentPosition — вызов должен быть в пользовательском обработчике
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      updateUserPosition(position);
+
+      // После успешного разрешения запускаем watchPosition (можно менять опции)
+      if (watchId === null) {
+        watchId = navigator.geolocation.watchPosition(
+          updateUserPosition,
+          (err) => {
+            console.warn('watchPosition error', err);
+          },
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+        );
+      }
+    },
+    (error) => {
+      console.error('Ошибка геолокации:', error);
+      if (error.code === error.PERMISSION_DENIED) {
+        alert('Доступ к геолокации запрещён. Разрешите доступ в настройках браузера (Chrome → Разрешения → Местоположение).');
+      } else {
+        alert('Не удалось получить геопозицию. Убедитесь, что GPS включён и повторите попытку.');
+      }
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+/* ==== Обработчик загрузки CSV и построения оптимального маршрута через OSRM Trip API ==== */
+document.getElementById('csvFile').addEventListener('change', function (ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+
+  Papa.parse(file, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: function (results) {
+      const data = results.data || [];
+      // Ожидаем поля lat и lon
+      const coords = data
+        .filter(r => r && (r.lat !== undefined && r.lon !== undefined || r.latitude !== undefined && r.longitude !== undefined))
+        .map(r => {
+          // Поддерживаем разные названия колонок
+          const lat = (r.lat !== undefined) ? r.lat : r.latitude;
+          const lon = (r.lon !== undefined) ? r.lon : r.longitude;
+          return [Number(lat), Number(lon)];
+        });
+
+      if (!coords.length) {
+        alert('CSV должен содержать столбцы lat и lon (или latitude/longitude).');
+        return;
+      }
+
+      // очистка слоёв
+      csvMarkersLayer.clearLayers();
+      routeLayer.clearLayers();
+      followLineLayer.clearLayers();
+      routePointsArray = [];
+
+      // маркеры точек
+      coords.forEach(c => L.marker(c).addTo(csvMarkersLayer));
+
+      // если есть позиция пользователя — ставим её в начало
+      let tripCoords = coords;
+      if (userCoords) tripCoords = [ userCoords, ...coords ];
+
+      const coordStr = tripCoords.map(c => `${c[1]},${c[0]}`).join(';');
+
+      const url = `https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(json => {
+          if (!json.trips || !json.trips.length) {
+            alert('OSRM не смог построить оптимальный маршрут.');
+            return;
+          }
+
+          const trip = json.trips[0];
+
+          routePointsArray = trip.geometry.coordinates.map(c => [c[1], c[0]]); // [lat, lon]
+
+          // рисуем маршрут
+          L.geoJSON(trip.geometry, { style: { color: '#0077cc', weight: 5, opacity: 0.9 } }).addTo(routeLayer);
+
+          // показываем краткую информацию
+          const distanceKm = (trip.distance / 1000).toFixed(2);
+          infoDistanceEl.textContent = `Длина: ${distanceKm} км`;
+
+          const totalMinutes = Math.round(trip.duration / 60);
+          let timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes / 60)} ч ${totalMinutes % 60} мин`;
+          infoDurationEl.textContent = `Время: ${timeStr}`;
+
+          // центрируем карту: если есть пользователь — на него, иначе на первый пункт маршрута
+          if (userCoords) centerOnUser(15);
+          else map.setView(tripCoords[0], 13);
+        })
+        .catch(err => {
+          console.error('OSRM fetch error', err);
+          alert('Ошибка запроса к OSRM (проверь интернет и CORS).');
+        });
+    },
+    error: function(err) {
+      console.error('PapaParse error', err);
+      alert('Ошибка чтения CSV.');
+    }
+  });
+});
+
+/* ==== Кнопки ==== */
+document.getElementById('locBtn').addEventListener('click', function () {
+  // ВНИМАНИЕ: вызов getCurrentPosition должен происходить в обработчике, чтобы Chrome показал диалог разрешения.
+  requestUserLocation();
+});
+
+document.getElementById('clearBtn').addEventListener('click', function () {
+  // очистка маршрутов и CSV, не трогаем маркер пользователя
+  csvMarkersLayer.clearLayers();
+  routeLayer.clearLayers();
+  followLineLayer.clearLayers();
+  document.getElementById('csvFile').value = '';
+  routePointsArray = [];
+  infoDistanceEl.textContent = 'Длина: —';
+  infoDurationEl.textContent = 'Время: —';
+});
+
+/* ==== Конец скрипта ==== */
+</script>
+
+</body>
+</html>

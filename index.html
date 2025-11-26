@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Мобильный навигатор (без симуляции)</title>
+<title>Мобильный навигатор</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -10,59 +10,68 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <style>
-  html,body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-  #map { height:100vh; width:100vw; }
-  #file-input {
-    position: absolute;
-    z-index: 1200;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 10px;
-    background: #fff;
-    padding: 8px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-    max-width: calc(100% - 20px);
-  }
-  #file-input input[type=file] { font-size:14px; }
-  #file-input button {
-    font-size:15px;
-    padding:8px 10px;
-    border-radius:8px;
-    border:1px solid #ccc;
-    background:#f7f7f7;
-  }
-  #info-box {
-    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-    z-index:1000; background:rgba(255,255,255,0.95); padding:10px 15px; border-radius:8px;
-    box-shadow:0 2px 5px rgba(0,0,0,0.3); min-width:180px; text-align:center; font-size:16px;
-  }
-  .leaflet-bottom .leaflet-control-zoom { top:50%; bottom:auto; transform: translateY(-50%); }
-  @media (max-width:420px){
-    #file-input { gap:6px; padding:6px; }
-    #file-input button { padding:8px 6px; font-size:14px; }
-    #info-box { font-size:13px; min-width:120px; padding:8px; }
-  }
-  /* Кнопка центрирования */
-  #centerUserBtn {
-    position: absolute;
-    bottom: 80px;
-    right: 10px;
-    z-index: 1200;
-    background: #0077cc;
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  }
+html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+#map { height:100vh; width:100vw; }
+
+#file-input {
+  position: absolute;
+  z-index: 1200;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 10px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: calc(100% - 20px);
+}
+#file-input input[type=file] { font-size:14px; }
+#file-input button {
+  font-size:15px;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  background:#f7f7f7;
+}
+
+#info-box {
+  position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  z-index:1000; background:rgba(255,255,255,0.95); padding:10px 15px; border-radius:8px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.3); min-width:180px; text-align:center; font-size:16px;
+}
+
+.leaflet-bottom .leaflet-control-zoom { top:50%; bottom:auto; transform: translateY(-50%); }
+
+@media (max-width:420px){
+  #file-input { gap:6px; padding:6px; }
+  #file-input button { padding:8px 6px; font-size:14px; }
+  #info-box { font-size:13px; min-width:120px; padding:8px; }
+}
+
+/* Кнопка центрирования */
+#centerUserBtn {
+  position: absolute;
+  bottom: 80px;
+  right: 10px;
+  z-index: 1200;
+  background: #fff;            
+  border: none;
+  border-radius: 50%;          
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.15s ease;
+}
+#centerUserBtn:hover { transform: scale(1.1); }
+#centerUserBtn svg { width: 28px; height: 28px; stroke: #0077cc; stroke-width: 2; fill: none; }
 </style>
 </head>
 <body>
@@ -83,7 +92,15 @@
 <div id="map"></div>
 
 <!-- Кнопка центрирования -->
-<button id="centerUserBtn">📍</button>
+<button id="centerUserBtn">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="2" x2="12" y2="6"/>
+    <line x1="12" y1="18" x2="12" y2="22"/>
+    <line x1="2" y1="12" x2="6" y2="12"/>
+    <line x1="18" y1="12" x2="22" y2="12"/>
+  </svg>
+</button>
 
 <script>
 /* ==== Настройки карты ==== */
@@ -110,17 +127,15 @@ const infoDurationEl = document.getElementById('info-duration');
 
 let autoFollow = true; // флаг автоприлипания
 
-/* ==== Центрирование на пользователе ==== */
+/* ==== Центрирование на пользователе с анимацией ==== */
 function centerOnUser(zoom = 15) {
-  if (userCoords && autoFollow) {
-    map.setView(userCoords, zoom);
+  if (userCoords) {
+    map.flyTo(userCoords, zoom, { duration: 1.0 });
   }
 }
 
 /* ==== Отключение автоприлипания при ручном движении карты ==== */
-map.on('movestart zoomstart', () => {
-  autoFollow = false;
-});
+map.on('movestart zoomstart', () => { autoFollow = false; });
 
 /* ==== Обновление позиции пользователя ==== */
 function updateUserPosition(position) {
@@ -128,21 +143,18 @@ function updateUserPosition(position) {
 
   if (!userMarker) {
     userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
-  } else {
-    userMarker.setLatLng(userCoords);
-  }
+  } else { userMarker.setLatLng(userCoords); }
 
   userMarker.openPopup();
   centerOnUser(15);
 
   if (routePointsArray.length) {
-    // поиск ближайшей точки маршрута
     let nearestIndex = 0;
     let minDist = Infinity;
     for (let i = 0; i < routePointsArray.length; i++) {
       const dLat = routePointsArray[i][0] - userCoords[0];
       const dLon = routePointsArray[i][1] - userCoords[1];
-      const dist = dLat * dLat + dLon * dLon;
+      const dist = dLat*dLat + dLon*dLon;
       if (dist < minDist) { minDist = dist; nearestIndex = i; }
     }
 
@@ -152,7 +164,7 @@ function updateUserPosition(position) {
   }
 }
 
-/* ==== Запрос геолокации (только по клику!) ==== */
+/* ==== Запрос геолокации ==== */
 function requestUserLocation() {
   if (!navigator.geolocation) {
     alert('Геолокация не поддерживается устройством.');
@@ -160,7 +172,7 @@ function requestUserLocation() {
   }
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    position => {
       updateUserPosition(position);
 
       if (watchId === null) {
@@ -171,11 +183,8 @@ function requestUserLocation() {
         );
       }
     },
-    (error) => {
-      console.error('Ошибка геопозиции:', error);
-      alert('GPS недоступен. Разрешите доступ в настройках.');
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    error => { alert('GPS недоступен. Разрешите доступ в настройках.'); },
+    { enableHighAccuracy: true, timeout:15000, maximumAge:0 }
   );
 }
 
@@ -186,7 +195,7 @@ function buildRouteFromCoords(coords) {
   routePointsArray = [];
 
   let tripCoords = coords;
-  if (userCoords) tripCoords = [ userCoords, ...coords ];
+  if (userCoords) tripCoords = [userCoords, ...coords];
 
   const coordStr = tripCoords.map(c => `${c[1]},${c[0]}`).join(';');
   const url = `https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`;
@@ -194,70 +203,47 @@ function buildRouteFromCoords(coords) {
   fetch(url)
     .then(r => r.json())
     .then(json => {
-      if (!json.trips || !json.trips.length) {
-        alert('OSRM не смог построить маршрут.');
-        return;
-      }
+      if (!json.trips || !json.trips.length) { alert('OSRM не смог построить маршрут.'); return; }
 
       const trip = json.trips[0];
-
       routePointsArray = trip.geometry.coordinates.map(c => [c[1], c[0]]);
 
       L.geoJSON(trip.geometry, { style: { color: '#0077cc', weight: 5, opacity: 0.9 } })
-        .addTo(routeLayer);
+       .addTo(routeLayer);
 
-      const distanceKm = (trip.distance / 1000).toFixed(2);
+      const distanceKm = (trip.distance/1000).toFixed(2);
       infoDistanceEl.textContent = `Длина: ${distanceKm} км`;
 
-      const totalMinutes = Math.round(trip.duration / 60);
-      let timeStr = (totalMinutes < 60)
-        ? `${totalMinutes} мин`
-        : `${Math.floor(totalMinutes / 60)} ч ${totalMinutes % 60} мин`;
-
+      const totalMinutes = Math.round(trip.duration/60);
+      const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
       infoDurationEl.textContent = `Время: ${timeStr}`;
 
-      if (userCoords) centerOnUser(15);
+      if (userCoords) centerOnUser(15); 
       else map.setView(tripCoords[0], 13);
     })
-    .catch(err => {
-      console.error('OSRM fetch error', err);
-      alert('Ошибка OSRM.');
-    });
+    .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
 }
 
 /* ==== Перестроение маршрута ==== */
 function rebuildRoute() {
-  if (!lastCsvCoords.length) {
-    alert('Сначала загрузите CSV.');
-    return;
-  }
+  if (!lastCsvCoords.length) { alert('Сначала загрузите CSV.'); return; }
   buildRouteFromCoords(lastCsvCoords);
 }
 
 /* ==== Загрузка CSV ==== */
-document.getElementById('csvFile').addEventListener('change', function (ev) {
+document.getElementById('csvFile').addEventListener('change', function(ev) {
   const file = ev.target.files && ev.target.files[0];
   if (!file) return;
 
   Papa.parse(file, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete: function (results) {
+    header: true, dynamicTyping: true, skipEmptyLines: true,
+    complete: function(results) {
       const data = results.data || [];
       const coords = data
-        .filter(r => r && (r.lat !== undefined && r.lon !== undefined ||
-                           r.latitude !== undefined && r.longitude !== undefined))
-        .map(r => {
-          const lat = (r.lat !== undefined) ? r.lat : r.latitude;
-          const lon = (r.lon !== undefined) ? r.lon : r.longitude;
-          return [Number(lat), Number(lon)];
-        });
+        .filter(r => r && ((r.lat!==undefined && r.lon!==undefined)||(r.latitude!==undefined && r.longitude!==undefined)))
+        .map(r => { return [(r.lat!==undefined?r.lat:r.latitude), (r.lon!==undefined?r.lon:r.longitude)]; });
 
-      if (!coords.length) {
-        alert('CSV должен содержать lat/lon.');
-        return;
-      }
+      if (!coords.length) { alert('CSV должен содержать lat/lon.'); return; }
 
       csvMarkersLayer.clearLayers();
       routeLayer.clearLayers();
@@ -265,22 +251,21 @@ document.getElementById('csvFile').addEventListener('change', function (ev) {
       routePointsArray = [];
 
       lastCsvCoords = coords;
-
       coords.forEach(c => L.marker(c).addTo(csvMarkersLayer));
 
       buildRouteFromCoords(coords);
     },
-    error: function(err) {
-      console.error('PapaParse error', err);
-      alert('Ошибка чтения CSV.');
-    }
+    error: function(err){ alert('Ошибка чтения CSV.'); console.error(err); }
   });
 });
 
 /* ==== Кнопки ==== */
-document.getElementById('locBtn').addEventListener('click', requestUserLocation);
+document.getElementById('locBtn').addEventListener('click', () => {
+  autoFollow = true; 
+  requestUserLocation();
+});
 document.getElementById('refreshBtn').addEventListener('click', rebuildRoute);
-document.getElementById('clearBtn').addEventListener('click', function () {
+document.getElementById('clearBtn').addEventListener('click', () => {
   csvMarkersLayer.clearLayers();
   routeLayer.clearLayers();
   followLineLayer.clearLayers();
@@ -291,14 +276,12 @@ document.getElementById('clearBtn').addEventListener('click', function () {
   infoDurationEl.textContent = 'Время: —';
 });
 
-/* ==== Кнопка центрирования на пользователе ==== */
-const centerUserBtn = document.getElementById('centerUserBtn');
-centerUserBtn.addEventListener('click', () => {
+/* ==== Кнопка центрирования ==== */
+document.getElementById('centerUserBtn').addEventListener('click', () => {
   if (!userCoords) return;
-  autoFollow = true;          // включаем автоприлипание
-  map.setView(userCoords, 15); // центрируем на пользователе
+  autoFollow = true;
+  centerOnUser(15);
 });
 </script>
-
 </body>
 </html>

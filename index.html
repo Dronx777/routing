@@ -129,7 +129,7 @@ let autoFollow = true; // флаг автоприлипания
 
 /* ==== Центрирование на пользователе с анимацией ==== */
 function centerOnUser(zoom = 15) {
-  if (userCoords) {
+  if (userCoords && autoFollow) {
     map.flyTo(userCoords, zoom, { duration: 1.0 });
   }
 }
@@ -143,10 +143,14 @@ function updateUserPosition(position) {
 
   if (!userMarker) {
     userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
-  } else { userMarker.setLatLng(userCoords); }
+  } else {
+    userMarker.setLatLng(userCoords);
+  }
 
   userMarker.openPopup();
-  centerOnUser(15);
+
+  // Центрируем только если автоприлипание включено
+  if (autoFollow) centerOnUser(15);
 
   if (routePointsArray.length) {
     let nearestIndex = 0;
@@ -218,7 +222,7 @@ function buildRouteFromCoords(coords) {
       const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
       infoDurationEl.textContent = `Время: ${timeStr}`;
 
-      if (userCoords) centerOnUser(15); 
+      if (userCoords && autoFollow) centerOnUser(15); 
       else map.setView(tripCoords[0], 13);
     })
     .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
@@ -279,8 +283,8 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 /* ==== Кнопка центрирования ==== */
 document.getElementById('centerUserBtn').addEventListener('click', () => {
   if (!userCoords) return;
-  autoFollow = true;
-  centerOnUser(15);
+  autoFollow = true;  // включаем автоприлипание заново
+  centerOnUser(15);   // центрируем на пользователе
 });
 </script>
 </body>

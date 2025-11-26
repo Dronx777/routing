@@ -2,96 +2,35 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Мобильный навигатор</title>
+<title>Мобильный навигатор с OSRM Trip</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
 <style>
-html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-#map { height:100vh; width:100vw; }
-
-#file-input {
-  position: absolute;
-  z-index: 1200;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 10px;
-  background: #fff;
-  padding: 8px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  max-width: calc(100% - 20px);
-}
-#file-input input[type=file] { font-size:14px; }
-#file-input button {
-  font-size:15px;
-  padding:8px 10px;
-  border-radius:8px;
-  border:1px solid #ccc;
-  background:#f7f7f7;
-}
-
-#info-box {
-  position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-  z-index:1000; background:rgba(255,255,255,0.95); padding:10px 15px; border-radius:8px;
-  box-shadow:0 2px 5px rgba(0,0,0,0.3); min-width:180px; text-align:center; font-size:16px;
-}
-
-.leaflet-bottom .leaflet-control-zoom { top:50%; bottom:auto; transform: translateY(-50%); }
-
-@media (max-width:420px){
-  #file-input { gap:6px; padding:6px; }
-  #file-input button { padding:8px 6px; font-size:14px; }
-  #info-box { font-size:13px; min-width:120px; padding:8px; }
-}
-
-/* Кнопка центрирования */
-#centerUserBtn {
-  position: absolute;
-  bottom: 80px;
-  right: 10px;
-  z-index: 1200;
-  background: #fff;            
-  border: none;
-  border-radius: 50%;          
-  width: 50px;
-  height: 50px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: transform 0.15s ease;
-}
-#centerUserBtn:hover { transform: scale(1.1); }
-#centerUserBtn svg { width: 28px; height: 28px; stroke: #0077cc; stroke-width: 2; fill: none; }
-
-/* Надпись версия */
-#version-label {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  color: #000000;
-  font-size: 14px;
-  z-index: 1200;
-  text-shadow: 0 0 3px rgba(0,0,0,0.7);
-}
+html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+#map{height:100vh;width:100vw;}
+#file-input{position:absolute;z-index:1200;left:50%;transform:translateX(-50%);top:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:calc(100%-20px);}
+#file-input input[type=file]{font-size:14px;}
+#file-input button{font-size:15px;padding:8px 10px;border-radius:8px;border:1px solid #ccc;background:#f7f7f7;cursor:pointer;}
+#info-box{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(255,255,255,0.95);padding:10px 15px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.3);min-width:180px;text-align:center;font-size:16px;}
+.leaflet-bottom .leaflet-control-zoom{top:50%;bottom:auto;transform:translateY(-50%);}
+#centerUserBtn{position:absolute;bottom:80px;right:10px;z-index:1200;background:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;justify-content:center;align-items:center;transition:transform 0.15s ease;}
+#centerUserBtn:hover{transform:scale(1.1);}
+#centerUserBtn svg{width:28px;height:28px;stroke:#0077cc;stroke-width:2;fill:none;}
+#version-label{position:absolute;bottom:10px;left:10px;color:#000;font-size:14px;z-index:1200;text-shadow:0 0 3px rgba(0,0,0,0.7);}
+#debug-container{position:absolute;top:60px;left:10px;z-index:1500;background:rgba(255,255,255,0.9);padding:8px;border-radius:8px;font-size:12px;max-width:300px;max-height:70vh;overflow:auto;}
+textarea{resize:none;}
 </style>
 </head>
 <body>
 
 <div id="file-input">
   <input type="file" id="csvFile" accept=".csv" />
-  <button id="locBtn" type="button">Определить GPS</button>
-  <button id="refreshBtn" type="button">Обновить</button>
-  <button id="clearBtn" type="button">Очистить</button>
+  <button id="locBtn">Определить GPS</button>
+  <button id="refreshBtn">Обновить</button>
+  <button id="clearBtn">Очистить</button>
+  <button id="downloadBtn">Скачать CSV</button>
 </div>
 
 <div id="info-box">
@@ -100,219 +39,219 @@ html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-syst
   <span id="info-duration">Время: —</span>
 </div>
 
+<div id="debug-container">
+  <b>Debug info:</b>
+  <div id="csvDataDebug"></div>
+  <div id="activeRouteDebug"></div>
+  <div id="osrmDebug"></div>
+</div>
+
 <div id="map"></div>
 
-<!-- Кнопка центрирования -->
 <button id="centerUserBtn">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10"/>
-    <line x1="12" y1="2" x2="12" y2="6"/>
-    <line x1="12" y1="18" x2="12" y2="22"/>
-    <line x1="2" y1="12" x2="6" y2="12"/>
-    <line x1="18" y1="12" x2="22" y2="12"/>
-  </svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="10"/>
+<line x1="12" y1="2" x2="12" y2="6"/>
+<line x1="12" y1="18" x2="12" y2="22"/>
+<line x1="2" y1="12" x2="6" y2="12"/>
+<line x1="18" y1="12" x2="22" y2="12"/>
+</svg>
 </button>
 
-<!-- Надпись версия -->
-<div id="version-label">версия 1.1</div>
+<div id="version-label">версия 2.2</div>
 
 <script>
-/* ==== Настройки карты ==== */
-const defaultCenter = [51.16, 71.47];
-const defaultZoom = 12;
-const map = L.map('map', { zoomControl: false }).setView(defaultCenter, defaultZoom);
+const map = L.map('map', {zoomControl:false}).setView([51.16,71.47],12);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-L.control.zoom({ position: 'bottomleft' }).addTo(map);
+L.control.zoom({position:'bottomleft'}).addTo(map);
 
-/* ==== Слои и глобальные переменные ==== */
 let csvMarkersLayer = L.layerGroup().addTo(map);
 let routeLayer = L.layerGroup().addTo(map);
-let followLineLayer = L.layerGroup().addTo(map);
-
-let userCoords = null;
 let userMarker = null;
-let watchId = null;
-
-let routePointsArray = [];
-let lastCsvCoords = [];
-let userPath = []; // путь пользователя для красной линии
+let autoFollow = true;
+let csvData = [];
+let csvFileName = '';
+let userCoords = null;
+let activeRouteCoords = [];
+let osrmCoords = [];
 
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
 
-let autoFollow = true; // флаг автоприлипания
-
-/* ==== Центрирование на пользователе с анимацией ==== */
-function centerOnUser(zoom = 15) {
-  if (userCoords) {
-    map.flyTo(userCoords, zoom, { duration: 1.0 });
-  }
+map.on('movestart zoomstart',()=>{autoFollow=false;});
+function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
+function updateUserPosition(pos){ 
+  userCoords=[pos.coords.latitude,pos.coords.longitude]; 
+  if(!userMarker) userMarker=L.marker(userCoords).addTo(map).bindPopup('Вы здесь'); 
+  else userMarker.setLatLng(userCoords); 
+  if(autoFollow) centerOnUser(); 
+}
+function requestUserLocation(){ 
+  if(!navigator.geolocation){alert('Геолокация не поддерживается');return;} 
+  navigator.geolocation.getCurrentPosition(updateUserPosition,err=>alert('GPS недоступен'),{enableHighAccuracy:true}); 
 }
 
-/* ==== Отключение автоприлипания при ручном движении карты ==== */
-map.on('movestart zoomstart', () => { autoFollow = false; });
-
-/* ==== Обновление позиции пользователя ==== */
-function updateUserPosition(position) {
-  userCoords = [position.coords.latitude, position.coords.longitude];
-
-  if (!userMarker) {
-    userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
-  } else { 
-    userMarker.setLatLng(userCoords); 
-  }
-
-  userMarker.openPopup();
-
-  if (autoFollow) centerOnUser(15);
-
-  // добавляем текущую точку в путь пользователя
-  userPath.push(userCoords);
-
-  // ===== пересчет маршрута по GPS =====
-  if (routePointsArray.length) {
-    // находим ближайшую точку маршрута
-    let nearestIndex = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < routePointsArray.length; i++) {
-      const dLat = routePointsArray[i][0] - userCoords[0];
-      const dLon = routePointsArray[i][1] - userCoords[1];
-      const dist = dLat*dLat + dLon*dLon;
-      if (dist < minDist) { minDist = dist; nearestIndex = i; }
-    }
-
-    // создаем новый массив маршрута от текущей позиции пользователя
-    const updatedRoute = [userCoords, ...routePointsArray.slice(nearestIndex)];
-
-    followLineLayer.clearLayers();
-    L.polyline(updatedRoute, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
-
-    // обновляем routePointsArray, чтобы дальше работать с новым положением
-    routePointsArray = updatedRoute;
-  }
+function updateDebugInfo(){
+  document.getElementById('csvDataDebug').innerHTML = `<b>csvData (${csvData.length}):</b><br>${csvData.map(p=>`lat:${p.lat}, lon:${p.lon}, status:${p.status}, comment:${p.comment}`).join('<br>')}`;
+  document.getElementById('activeRouteDebug').innerHTML = `<b>activeRouteCoords (${activeRouteCoords.length}):</b><br>${activeRouteCoords.map(c=>`[${c[0]}, ${c[1]}]`).join('<br>')}`;
+  document.getElementById('osrmDebug').innerHTML = `<b>OSRM Trip coords (${osrmCoords.length}):</b><br>${osrmCoords.map(c=>`[${c[1]}, ${c[0]}]`).join('; ')};`;
 }
 
-/* ==== Запрос геолокации ==== */
-function requestUserLocation() {
-  if (!navigator.geolocation) {
-    alert('Геолокация не поддерживается устройством.');
+function buildOptimizedRoute(){
+  // Полностью пересоздаём слой маршрута
+  routeLayer.clearLayers();
+  routeLayer = L.layerGroup().addTo(map);
+
+  // фильтруем координаты только со статусом "0"
+  activeRouteCoords = csvData.filter(p=>String(p.status)==="0").map(p=>[Number(p.lat),Number(p.lon)]);
+  osrmCoords = [...activeRouteCoords];
+
+  updateDebugInfo();
+
+  if(osrmCoords.length===0){
+    infoDistanceEl.textContent='Длина: —';
+    infoDurationEl.textContent='Время: —';
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    position => {
-      updateUserPosition(position);
-
-      if (watchId === null) {
-        watchId = navigator.geolocation.watchPosition(
-          updateUserPosition,
-          err => console.warn('watchPosition error', err),
-          { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
-        );
-      }
-    },
-    error => { alert('GPS недоступен. Разрешите доступ в настройках.'); },
-    { enableHighAccuracy: true, timeout:15000, maximumAge:0 }
-  );
-}
-
-/* ==== Построение маршрута из массива координат ==== */
-function buildRouteFromCoords(coords) {
-  routeLayer.clearLayers();
-  followLineLayer.clearLayers();
-  routePointsArray = [];
-  userPath = [];
-
-  let tripCoords = coords;
-  if (userCoords) tripCoords = [userCoords, ...coords];
-
+  const tripCoords = userCoords ? [userCoords, ...osrmCoords] : osrmCoords;
   const coordStr = tripCoords.map(c => `${c[1]},${c[0]}`).join(';');
-  const url = `https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`;
 
-  fetch(url)
-    .then(r => r.json())
-    .then(json => {
-      if (!json.trips || !json.trips.length) { alert('OSRM не смог построить маршрут.'); return; }
-
+  fetch(`https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`)
+    .then(r=>r.json())
+    .then(json=>{
+      if(!json.trips || !json.trips.length){ alert('OSRM не смог построить маршрут'); return; }
       const trip = json.trips[0];
-      routePointsArray = trip.geometry.coordinates.map(c => [c[1], c[0]]);
-
-      L.geoJSON(trip.geometry, { style: { color: '#0077cc', weight: 5, opacity: 0.9 } })
-       .addTo(routeLayer);
+      routeLayer.clearLayers();
+      L.geoJSON(trip.geometry,{style:{color:'#0077cc',weight:5,opacity:0.9}}).addTo(routeLayer);
 
       const distanceKm = (trip.distance/1000).toFixed(2);
       infoDistanceEl.textContent = `Длина: ${distanceKm} км`;
-
       const totalMinutes = Math.round(trip.duration/60);
-      const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
-      infoDurationEl.textContent = `Время: ${timeStr}`;
+      infoDurationEl.textContent = totalMinutes<60?`${totalMinutes} мин`:`${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
 
-      if (userCoords) centerOnUser(15); 
-      else map.setView(tripCoords[0], 13);
+      if(userCoords) centerOnUser(15);
     })
-    .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
+    .catch(err=>{ alert('Ошибка OSRM'); console.error(err); });
 }
 
-/* ==== Перестроение маршрута ==== */
-function rebuildRoute() {
-  if (!lastCsvCoords.length) { alert('Сначала загрузите CSV.'); return; }
-  buildRouteFromCoords(lastCsvCoords);
-}
+function createPopup(point, marker, index){
+  const container=document.createElement('div');
+  container.style.display='flex'; container.style.flexDirection='column'; container.style.gap='6px';
 
-/* ==== Загрузка CSV ==== */
-document.getElementById('csvFile').addEventListener('change', function(ev) {
-  const file = ev.target.files && ev.target.files[0];
-  if (!file) return;
+  // LAT/LON
+  const latDiv=document.createElement('div');
+  latDiv.style.display='flex'; latDiv.style.gap='5px';
+  const latInput=document.createElement('input');
+  latInput.type='text';
+  latInput.value=`${point.lat}, ${point.lon}`;
+  latInput.readOnly=true;
+  latInput.style.border='none';
+  latInput.style.background='transparent';
+  latInput.style.flexGrow='1';
+  const copyBtn=document.createElement('button');
+  copyBtn.textContent='📋';
+  copyBtn.title='Скопировать';
+  copyBtn.addEventListener('click',()=>{ navigator.clipboard.writeText(latInput.value); copyBtn.textContent='✔'; setTimeout(()=>copyBtn.textContent='📋',1000); });
+  latDiv.appendChild(latInput); latDiv.appendChild(copyBtn); container.appendChild(latDiv);
 
-  Papa.parse(file, {
-    header: true, dynamicTyping: true, skipEmptyLines: true,
-    complete: function(results) {
-      const data = results.data || [];
-      const coords = data
-        .filter(r => r && ((r.lat!==undefined && r.lon!==undefined)||(r.latitude!==undefined && r.longitude!==undefined)))
-        .map(r => { return [(r.lat!==undefined?r.lat:r.latitude), (r.lon!==undefined?r.lon:r.longitude)]; });
+  // STATUS
+  const statusDiv=document.createElement('div');
+  statusDiv.style.display='flex'; statusDiv.style.gap='4px';
+  const statusInput=document.createElement('input');
+  statusInput.type='number';
+  statusInput.value=String(point.status);
+  statusInput.min=0; statusInput.max=1; statusInput.style.width='50px';
+  const saveBtn=document.createElement('button'); saveBtn.textContent='✅'; saveBtn.style.display='none';
+  const cancelBtn=document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none';
+  let originalValue=String(point.status);
 
-      if (!coords.length) { alert('CSV должен содержать lat/lon.'); return; }
-
-      csvMarkersLayer.clearLayers();
-      routeLayer.clearLayers();
-      followLineLayer.clearLayers();
-      routePointsArray = [];
-      userPath = [];
-
-      lastCsvCoords = coords;
-      coords.forEach(c => L.marker(c).addTo(csvMarkersLayer));
-
-      buildRouteFromCoords(coords);
-    },
-    error: function(err){ alert('Ошибка чтения CSV.'); console.error(err); }
+  statusInput.addEventListener('input',()=>{
+    let val=String(statusInput.value);
+    if(val!=="0" && val!=="1"){ statusInput.value=originalValue; return; }
+    if(val!==originalValue){ saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; } 
+    else{ saveBtn.style.display='none'; cancelBtn.style.display='none'; }
   });
+
+  saveBtn.addEventListener('click',()=>{
+    let val=String(statusInput.value);
+    point.status=val; csvData[index].status=val; originalValue=val;
+    marker.setStyle({color:val==="0"?'red':'green',fillColor:val==="0"?'red':'green'});
+    buildOptimizedRoute(); // пересобираем маршрут после изменения
+  });
+
+  cancelBtn.addEventListener('click',()=>{ statusInput.value=originalValue; saveBtn.style.display='none'; cancelBtn.style.display='none'; });
+
+  statusDiv.appendChild(document.createTextNode('status: '));
+  statusDiv.appendChild(statusInput); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
+  container.appendChild(statusDiv);
+
+  // COMMENT
+  const commentDiv=document.createElement('div');
+  commentDiv.style.display='flex'; commentDiv.style.flexDirection='column'; commentDiv.style.gap='4px';
+  const commentLabel=document.createElement('span'); commentLabel.textContent='comment:';
+  const commentInput=document.createElement('textarea'); commentInput.value=point.comment||""; commentInput.rows=2; commentInput.style.width='100%';
+  const commentSave=document.createElement('button'); commentSave.textContent='💾'; commentSave.style.display='none';
+  const commentCancel=document.createElement('button'); commentCancel.textContent='❌'; commentCancel.style.display='none';
+  let originalComment = point.comment || "";
+
+  commentInput.addEventListener('input',()=>{
+    if(commentInput.value !== originalComment){ commentSave.style.display='inline-block'; commentCancel.style.display='inline-block'; } 
+    else{ commentSave.style.display='none'; commentCancel.style.display='none'; }
+  });
+
+  commentSave.addEventListener('click',()=>{
+    point.comment = commentInput.value; csvData[index].comment = commentInput.value; originalComment = commentInput.value;
+    commentSave.style.display='none'; commentCancel.style.display='none';
+  });
+
+  commentCancel.addEventListener('click',()=>{ commentInput.value = originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
+  commentDiv.appendChild(commentLabel); commentDiv.appendChild(commentInput); commentDiv.appendChild(commentSave); commentDiv.appendChild(commentCancel);
+  container.appendChild(commentDiv);
+
+  return container;
+}
+
+document.getElementById('csvFile').addEventListener('change', function(ev){
+  const file=ev.target.files[0]; if(!file) return; csvFileName=file.name;
+  Papa.parse(file,{header:true,dynamicTyping:false,skipEmptyLines:true,complete:function(results){
+    const data=results.data||[]; 
+    csvData=[]; 
+    csvMarkersLayer.clearLayers(); 
+    routeLayer.clearLayers();
+    activeRouteCoords=[]; 
+    osrmCoords=[];
+    data.forEach((r,i)=>{
+      const lat=r.lat!==undefined?r.lat:r.latitude;
+      const lon=r.lon!==undefined?r.lon:r.longitude;
+      const status = (r.status === "1") ? "1" : "0";
+      const comment=r.comment||"";
+      csvData.push({lat,lon,status,comment});
+      if(status==="0") activeRouteCoords.push([Number(lat),Number(lon)]);
+      const color=status==="0"?'red':'green';
+      const marker=L.circleMarker([lat,lon],{radius:7,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
+      marker.bindPopup(createPopup(csvData[i],marker,i),{minWidth:180});
+    });
+    osrmCoords = [...activeRouteCoords];
+    buildOptimizedRoute();
+  }});
 });
 
-/* ==== Кнопки ==== */
-document.getElementById('locBtn').addEventListener('click', () => {
-  autoFollow = true; 
-  requestUserLocation();
-});
-document.getElementById('refreshBtn').addEventListener('click', rebuildRoute);
-document.getElementById('clearBtn').addEventListener('click', () => {
-  csvMarkersLayer.clearLayers();
-  routeLayer.clearLayers();
-  followLineLayer.clearLayers();
-  document.getElementById('csvFile').value = '';
-  lastCsvCoords = [];
-  routePointsArray = [];
-  userPath = [];
-  infoDistanceEl.textContent = 'Длина: —';
-  infoDurationEl.textContent = 'Время: —';
+document.getElementById('downloadBtn').addEventListener('click', ()=>{
+  if(!csvData.length){ alert('Нет данных'); return; }
+  const csv=Papa.unparse(csvData);
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob); 
+  const link=document.createElement('a'); 
+  link.href=url; 
+  link.download=csvFileName||'updated.csv';
+  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
 });
 
-/* ==== Кнопка центрирования ==== */
-document.getElementById('centerUserBtn').addEventListener('click', () => {
-  if (!userCoords) return;
-  autoFollow = true;
-  centerOnUser(15);
-});
+document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });
+document.getElementById('refreshBtn').addEventListener('click',()=>{ buildOptimizedRoute(); });
+document.getElementById('clearBtn').addEventListener('click',()=>{ csvMarkersLayer.clearLayers(); routeLayer.clearLayers(); document.getElementById('csvFile').value=''; csvData=[]; activeRouteCoords=[]; osrmCoords=[]; infoDistanceEl.textContent='Длина: —'; infoDurationEl.textContent='Время: —'; updateDebugInfo(); });
+document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
 </script>
 </body>
 </html>

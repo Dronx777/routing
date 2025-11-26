@@ -95,6 +95,7 @@ function updateDebugInfo(){
   document.getElementById('csvDataDebug').innerHTML = `<b>csvData (${csvData.length}):</b><br>${csvData.map(p=>`lat:${p.lat}, lon:${p.lon}, status:${p.status}, comment:${p.comment}`).join('<br>')}`;
   document.getElementById('activeRouteDebug').innerHTML = `<b>activeRouteCoords (${activeRouteCoords.length}):</b><br>${activeRouteCoords.map(c=>`[${c[0]}, ${c[1]}]`).join('<br>')}`;
   document.getElementById('osrmDebug').innerHTML = `<b>OSRM Trip coords (${osrmCoords.length}):</b><br>${osrmCoords.map(c=>`[${c[1]}, ${c[0]}]`).join('; ')};`;
+  document.getElementById('debug-container').style.display = 'none';
 }
 
 function buildOptimizedRoute(){

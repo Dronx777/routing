@@ -19,7 +19,6 @@ html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,Seg
 #centerUserBtn:hover{transform:scale(1.1);}
 #centerUserBtn svg{width:28px;height:28px;stroke:#0077cc;stroke-width:2;fill:none;}
 #version-label{position:absolute;bottom:10px;left:10px;color:#000;font-size:14px;z-index:1200;text-shadow:0 0 3px rgba(0,0,0,0.7);}
-#debug-container{position:absolute;top:60px;left:10px;z-index:1500;background:rgba(255,255,255,0.9);padding:8px;border-radius:8px;font-size:12px;max-width:300px;max-height:70vh;overflow:auto;}
 textarea{resize:none;}
 </style>
 </head>
@@ -37,13 +36,6 @@ textarea{resize:none;}
   <b>Маршрут</b><br>
   <span id="info-distance">Длина: —</span><br>
   <span id="info-duration">Время: —</span>
-</div>
-
-<div id="debug-container">
-  <b>Debug info:</b>
-  <div id="csvDataDebug"></div>
-  <div id="activeRouteDebug"></div>
-  <div id="osrmDebug"></div>
 </div>
 
 <div id="map"></div>
@@ -91,23 +83,12 @@ function requestUserLocation(){
   navigator.geolocation.getCurrentPosition(updateUserPosition,err=>alert('GPS недоступен'),{enableHighAccuracy:true}); 
 }
 
-function updateDebugInfo(){
-  document.getElementById('csvDataDebug').innerHTML = `<b>csvData (${csvData.length}):</b><br>${csvData.map(p=>`lat:${p.lat}, lon:${p.lon}, status:${p.status}, comment:${p.comment}`).join('<br>')}`;
-  document.getElementById('activeRouteDebug').innerHTML = `<b>activeRouteCoords (${activeRouteCoords.length}):</b><br>${activeRouteCoords.map(c=>`[${c[0]}, ${c[1]}]`).join('<br>')}`;
-  document.getElementById('osrmDebug').innerHTML = `<b>OSRM Trip coords (${osrmCoords.length}):</b><br>${osrmCoords.map(c=>`[${c[1]}, ${c[0]}]`).join('; ')};`;
-  document.getElementById('debug-container').style.display = 'none';
-}
-
 function buildOptimizedRoute(){
-  // Полностью пересоздаём слой маршрута
   routeLayer.clearLayers();
   routeLayer = L.layerGroup().addTo(map);
 
-  // фильтруем координаты только со статусом "0"
   activeRouteCoords = csvData.filter(p=>String(p.status)==="0").map(p=>[Number(p.lat),Number(p.lon)]);
   osrmCoords = [...activeRouteCoords];
-
-  updateDebugInfo();
 
   if(osrmCoords.length===0){
     infoDistanceEl.textContent='Длина: —';
@@ -251,7 +232,7 @@ document.getElementById('downloadBtn').addEventListener('click', ()=>{
 
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });
 document.getElementById('refreshBtn').addEventListener('click',()=>{ buildOptimizedRoute(); });
-document.getElementById('clearBtn').addEventListener('click',()=>{ csvMarkersLayer.clearLayers(); routeLayer.clearLayers(); document.getElementById('csvFile').value=''; csvData=[]; activeRouteCoords=[]; osrmCoords=[]; infoDistanceEl.textContent='Длина: —'; infoDurationEl.textContent='Время: —'; updateDebugInfo(); });
+document.getElementById('clearBtn').addEventListener('click',()=>{ csvMarkersLayer.clearLayers(); routeLayer.clearLayers(); document.getElementById('csvFile').value=''; csvData=[]; activeRouteCoords=[]; osrmCoords=[]; infoDistanceEl.textContent='Длина: —'; infoDurationEl.textContent='Время: —'; });
 document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
 </script>
 </body>

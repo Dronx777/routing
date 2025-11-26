@@ -279,6 +279,16 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   infoDurationEl.textContent = 'Время: —';
 });
 
+  /* ==== Кнопка «Определить GPS» ==== */
+document.getElementById('locBtn').addEventListener('click', () => {
+  if (!userCoords) {
+    // если ещё нет координат, запросим геолокацию
+    requestUserLocation();
+  }
+  autoFollow = true;       // включаем автоприлипание
+  centerOnUser(15);        // центрируем карту на пользователе
+});
+
 /* ==== Кнопка центрирования ==== */
 document.getElementById('centerUserBtn').addEventListener('click', () => {
   if (!userCoords) return;

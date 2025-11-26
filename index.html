@@ -32,6 +32,7 @@ button{font-size:14px;padding:4px 6px;}
   <button id="refreshBtn">Обновить</button>
   <button id="clearBtn">Очистить</button>
   <button id="downloadBtn">Скачать</button>
+  <button id="navigateBtn">Навигация</button>
 </div>
 
 <div id="info-box">
@@ -52,7 +53,7 @@ button{font-size:14px;padding:4px 6px;}
 </svg>
 </button>
 
-<div id="version-label">версия 3.0</div>
+<div id="version-label">версия 3.1</div>
 
 <script>
 const map = L.map('map', {zoomControl:false}).setView([51.16,71.47],12);
@@ -68,6 +69,11 @@ let csvFileName = '';
 let userCoords = null;
 let activeRouteCoords = [];
 let osrmCoords = [];
+
+let navMarker = null;
+let navCoords = [];
+let navIndex = 0;
+let navTimer = null;
 
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
@@ -115,6 +121,11 @@ function buildOptimizedRoute(){
       infoDurationEl.textContent = totalMinutes<60?`${totalMinutes} мин`:`${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
 
       if(userCoords) centerOnUser(15);
+
+      // сохраняем геометрию для навигации
+      navCoords = trip.geometry.coordinates.map(c=>[c[1],c[0]]);
+      navIndex = 0;
+      if(navMarker) navMarker.setLatLng(navCoords[0]);
     })
     .catch(err=>{ alert('Ошибка OSRM'); console.error(err); });
 }
@@ -244,10 +255,29 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   routeLayer.clearLayers(); 
   document.getElementById('csvFile').value=''; 
   csvData=[]; activeRouteCoords=[]; osrmCoords=[]; 
+  if(navMarker) map.removeLayer(navMarker);
+  navCoords=[]; navIndex=0; if(navTimer) clearInterval(navTimer);
   infoDistanceEl.textContent='Длина: —'; 
   infoDurationEl.textContent='Время: —'; 
 });
 document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
+
+document.getElementById('navigateBtn').addEventListener('click',()=>{
+  if(!navCoords.length){ alert('Нет маршрута'); return; }
+  if(navTimer) clearInterval(navTimer);
+  navIndex = 0;
+  if(!navMarker){
+    navMarker = L.marker(navCoords[0],{icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',iconSize:[30,30]})}).addTo(map);
+  } else navMarker.setLatLng(navCoords[0]);
+  map.flyTo(navCoords[0],15);
+
+  navTimer = setInterval(()=>{
+    if(navIndex >= navCoords.length){ clearInterval(navTimer); return; }
+    navMarker.setLatLng(navCoords[navIndex]);
+    map.panTo(navCoords[navIndex]);
+    navIndex++;
+  },500); // скорость движения, можно менять
+});
 </script>
 </body>
 </html>

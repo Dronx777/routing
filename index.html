@@ -135,6 +135,7 @@ let watchId = null;
 
 let routePointsArray = [];
 let lastCsvCoords = [];
+let userPath = []; // путь пользователя для красной линии
 
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
@@ -157,12 +158,20 @@ function updateUserPosition(position) {
 
   if (!userMarker) {
     userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
-  } else { userMarker.setLatLng(userCoords); }
+  } else { 
+    userMarker.setLatLng(userCoords); 
+  }
 
   userMarker.openPopup();
-  centerOnUser(15);
 
+  if (autoFollow) centerOnUser(15);
+
+  // добавляем текущую точку в путь пользователя
+  userPath.push(userCoords);
+
+  // ===== пересчет маршрута по GPS =====
   if (routePointsArray.length) {
+    // находим ближайшую точку маршрута
     let nearestIndex = 0;
     let minDist = Infinity;
     for (let i = 0; i < routePointsArray.length; i++) {
@@ -172,9 +181,14 @@ function updateUserPosition(position) {
       if (dist < minDist) { minDist = dist; nearestIndex = i; }
     }
 
+    // создаем новый массив маршрута от текущей позиции пользователя
+    const updatedRoute = [userCoords, ...routePointsArray.slice(nearestIndex)];
+
     followLineLayer.clearLayers();
-    const remaining = [ userCoords, ...routePointsArray.slice(nearestIndex) ];
-    L.polyline(remaining, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
+    L.polyline(updatedRoute, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
+
+    // обновляем routePointsArray, чтобы дальше работать с новым положением
+    routePointsArray = updatedRoute;
   }
 }
 
@@ -207,6 +221,7 @@ function buildRouteFromCoords(coords) {
   routeLayer.clearLayers();
   followLineLayer.clearLayers();
   routePointsArray = [];
+  userPath = [];
 
   let tripCoords = coords;
   if (userCoords) tripCoords = [userCoords, ...coords];
@@ -263,6 +278,7 @@ document.getElementById('csvFile').addEventListener('change', function(ev) {
       routeLayer.clearLayers();
       followLineLayer.clearLayers();
       routePointsArray = [];
+      userPath = [];
 
       lastCsvCoords = coords;
       coords.forEach(c => L.marker(c).addTo(csvMarkersLayer));
@@ -286,6 +302,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('csvFile').value = '';
   lastCsvCoords = [];
   routePointsArray = [];
+  userPath = [];
   infoDistanceEl.textContent = 'Длина: —';
   infoDurationEl.textContent = 'Время: —';
 });

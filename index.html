@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Мобильный навигатор с OSRM Trip</title>
+<title>Мобильный навигатор с автосохранением</title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -68,9 +68,7 @@ let userCoords = null;
 let activeRouteCoords = [];
 let osrmCoords = [];
 
-const infoDistanceEl = document.getElementById('info-distance');
-const infoDurationEl = document.getElementById('info-duration');
-
+let directoryHandle = null; // handle для Android
 map.on('movestart zoomstart',()=>{autoFollow=false;});
 
 function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
@@ -91,8 +89,8 @@ function buildOptimizedRoute(){
   osrmCoords = [...activeRouteCoords];
 
   if(osrmCoords.length === 0){
-    infoDistanceEl.textContent='Длина: —';
-    infoDurationEl.textContent='Время: —';
+    document.getElementById('info-distance').textContent='Длина: —';
+    document.getElementById('info-duration').textContent='Время: —';
     return;
   }
 
@@ -109,91 +107,87 @@ function buildOptimizedRoute(){
       L.geoJSON(trip.geometry,{style:{color:'#0077cc',weight:3,opacity:0.9}}).addTo(routeLayer);
 
       const distanceKm = (trip.distance/1000).toFixed(2);
-      infoDistanceEl.textContent = `Длина: ${distanceKm} км`;
+      document.getElementById('info-distance').textContent = `Длина: ${distanceKm} км`;
       const totalMinutes = Math.round(trip.duration/60);
-      infoDurationEl.textContent = totalMinutes<60?`${totalMinutes} мин`:`${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
+      document.getElementById('info-duration').textContent = totalMinutes<60?`${totalMinutes} мин`:`${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
 
       if(userCoords) centerOnUser(15);
     })
     .catch(err=>{ alert('Ошибка OSRM'); console.error(err); });
 }
 
+async function autoSaveCsv(){
+  if(!csvData.length) return;
+  const csvText = Papa.unparse(csvData);
+  const filename = csvFileName || 'updated.csv';
+
+  if(window.showDirectoryPicker){
+    try{
+      if(!directoryHandle){
+        directoryHandle = await window.showDirectoryPicker();
+      }
+      const fileHandle = await directoryHandle.getFileHandle(filename, {create:true});
+      const writable = await fileHandle.createWritable();
+      await writable.write(csvText);
+      await writable.close();
+      console.log('Автосохранение прошло успешно!');
+      return;
+    }catch(e){ console.error('Ошибка автосохранения:', e); }
+  } else {
+    // fallback обычный download
+    const blob = new Blob([csvText], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),100);
+  }
+}
+
 function createPopup(point, marker, index){
   const container=document.createElement('div');
-  container.style.display='flex'; container.style.flexDirection='column'; container.style.gap='4px';
-  container.style.fontSize='14px';
+  container.style.display='flex'; container.style.flexDirection='column'; container.style.gap='4px'; container.style.fontSize='14px';
 
-  const latDiv=document.createElement('div');
-  latDiv.style.display='flex'; latDiv.style.gap='4px';
-  const latInput=document.createElement('input');
-  latInput.type='text';
-  latInput.value=`${point.lat}, ${point.lon}`;
-  latInput.readOnly=true;
-  latInput.style.border='none';
-  latInput.style.background='transparent';
-  latInput.style.flexGrow='1';
-  latInput.style.fontSize='13px';
-  const copyBtn=document.createElement('button');
-  copyBtn.textContent='📋';
-  copyBtn.title='Скопировать';
-  copyBtn.style.fontSize='14px';
+  // LAT/LON
+  const latDiv=document.createElement('div'); latDiv.style.display='flex'; latDiv.style.gap='4px';
+  const latInput=document.createElement('input'); latInput.type='text'; latInput.value=`${point.lat}, ${point.lon}`; latInput.readOnly=true; latInput.style.border='none'; latInput.style.background='transparent'; latInput.style.flexGrow='1'; latInput.style.fontSize='13px';
+  const copyBtn=document.createElement('button'); copyBtn.textContent='📋'; copyBtn.style.fontSize='14px';
   copyBtn.addEventListener('click',()=>{ navigator.clipboard.writeText(latInput.value); copyBtn.textContent='✔'; setTimeout(()=>copyBtn.textContent='📋',1000); });
   latDiv.appendChild(latInput); latDiv.appendChild(copyBtn); container.appendChild(latDiv);
 
-  const statusDiv = document.createElement('div');
-  statusDiv.style.display = 'flex';
-  statusDiv.style.flexDirection = 'column';
-  statusDiv.style.gap='4px';
-  statusDiv.style.fontSize='14px';
-  const statusLabel = document.createElement('span'); statusLabel.textContent = 'status:';
-  const btnContainer = document.createElement('div');
-  btnContainer.style.display='flex';
-  btnContainer.style.gap='4px';
-  const btn0 = document.createElement('button'); btn0.textContent = '0';
-  const btn1 = document.createElement('button'); btn1.textContent = '1';
-  [btn0, btn1].forEach(b => { b.style.fontSize='14px'; b.style.flex='1'; });
+  // STATUS
+  const statusDiv=document.createElement('div'); statusDiv.style.display='flex'; statusDiv.style.flexDirection='column'; statusDiv.style.gap='4px'; statusDiv.style.fontSize='14px';
+  const statusLabel=document.createElement('span'); statusLabel.textContent='status:';
+  const btnContainer=document.createElement('div'); btnContainer.style.display='flex'; btnContainer.style.gap='4px';
+  const btn0=document.createElement('button'); btn0.textContent='0';
+  const btn1=document.createElement('button'); btn1.textContent='1';
+  [btn0, btn1].forEach(b=>{ b.style.fontSize='14px'; b.style.flex='1'; });
   let originalValue = String(point.status);
-  function updateButtons() {
-    if(originalValue==='0'){ btn0.style.background='#0077cc'; btn0.style.color='#fff'; btn1.style.background=''; btn1.style.color=''; }
-    else { btn1.style.background='#0077cc'; btn1.style.color='#fff'; btn0.style.background=''; btn0.style.color=''; }
-  }
+  function updateButtons(){ if(originalValue==='0'){ btn0.style.background='#0077cc'; btn0.style.color='#fff'; btn1.style.background=''; btn1.style.color=''; } else { btn1.style.background='#0077cc'; btn1.style.color='#fff'; btn0.style.background=''; btn0.style.color=''; } }
   updateButtons();
-  const saveBtn = document.createElement('button'); saveBtn.textContent='💾'; saveBtn.style.display='none'; saveBtn.style.fontSize='14px';
-  const cancelBtn = document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none'; cancelBtn.style.fontSize='14px';
-  btn0.addEventListener('click',()=>{ originalValue='0'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
-  btn1.addEventListener('click',()=>{ originalValue='1'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
+  const saveBtn=document.createElement('button'); saveBtn.textContent='💾'; saveBtn.style.display='none';
+  const cancelBtn=document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none';
+  [btn0, btn1].forEach(b=>{
+    b.addEventListener('click',()=>{
+      originalValue=b.textContent; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block';
+    });
+  });
   saveBtn.addEventListener('click',()=>{
-    point.status = originalValue;
-    csvData[index].status = originalValue;
-    marker.setStyle({color: originalValue==='0'?'red':'green', fillColor: originalValue==='0'?'red':'green'});
-    saveBtn.style.display='none'; cancelBtn.style.display='none';
-    buildOptimizedRoute();
+    point.status=originalValue; csvData[index].status=originalValue; marker.setStyle({color: originalValue==='0'?'red':'green', fillColor: originalValue==='0'?'red':'green'}); saveBtn.style.display='none'; cancelBtn.style.display='none';
+    buildOptimizedRoute(); autoSaveCsv();
   });
-  cancelBtn.addEventListener('click',()=>{
-    originalValue = point.status;
-    updateButtons();
-    saveBtn.style.display='none'; cancelBtn.style.display='none';
-  });
-  btnContainer.appendChild(btn0); btnContainer.appendChild(btn1);
-  statusDiv.appendChild(statusLabel); statusDiv.appendChild(btnContainer); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
+  cancelBtn.addEventListener('click',()=>{ originalValue=point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });
+  btnContainer.appendChild(btn0); btnContainer.appendChild(btn1); statusDiv.appendChild(statusLabel); statusDiv.appendChild(btnContainer); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
   container.appendChild(statusDiv);
 
-  const commentDiv=document.createElement('div');
-  commentDiv.style.display='flex'; commentDiv.style.flexDirection='column'; commentDiv.style.gap='4px';
+  // COMMENT
+  const commentDiv=document.createElement('div'); commentDiv.style.display='flex'; commentDiv.style.flexDirection='column'; commentDiv.style.gap='4px';
   const commentLabel=document.createElement('span'); commentLabel.textContent='comment:';
   const commentInput=document.createElement('textarea'); commentInput.value=point.comment||""; commentInput.rows=2; commentInput.style.width='100%'; commentInput.style.fontSize='13px';
-  const commentSave=document.createElement('button'); commentSave.textContent='💾'; commentSave.style.display='none'; commentSave.style.fontSize='14px';
-  const commentCancel=document.createElement('button'); commentCancel.textContent='❌'; commentCancel.style.display='none'; commentCancel.style.fontSize='14px';
-  let originalComment = point.comment || "";
-  commentInput.addEventListener('input',()=>{
-    if(commentInput.value !== originalComment){ commentSave.style.display='inline-block'; commentCancel.style.display='inline-block'; } 
-    else{ commentSave.style.display='none'; commentCancel.style.display='none'; }
-  });
-  commentSave.addEventListener('click',()=>{
-    point.comment = commentInput.value; csvData[index].comment = commentInput.value; originalComment = commentInput.value;
-    commentSave.style.display='none'; commentCancel.style.display='none';
-  });
-  commentCancel.addEventListener('click',()=>{ commentInput.value = originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
+  const commentSave=document.createElement('button'); commentSave.textContent='💾'; commentSave.style.display='none';
+  const commentCancel=document.createElement('button'); commentCancel.textContent='❌'; commentCancel.style.display='none';
+  let originalComment = point.comment||"";
+  commentInput.addEventListener('input',()=>{ if(commentInput.value!==originalComment){ commentSave.style.display='inline-block'; commentCancel.style.display='inline-block'; } else{ commentSave.style.display='none'; commentCancel.style.display='none'; } });
+  commentSave.addEventListener('click',()=>{ point.comment=commentInput.value; csvData[index].comment=commentInput.value; originalComment=commentInput.value; commentSave.style.display='none'; commentCancel.style.display='none'; autoSaveCsv(); });
+  commentCancel.addEventListener('click',()=>{ commentInput.value=originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
   commentDiv.appendChild(commentLabel); commentDiv.appendChild(commentInput); commentDiv.appendChild(commentSave); commentDiv.appendChild(commentCancel);
   container.appendChild(commentDiv);
 
@@ -204,66 +198,25 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
   const file=ev.target.files[0]; if(!file) return; csvFileName=file.name;
   Papa.parse(file,{header:true,dynamicTyping:false,skipEmptyLines:true,complete:function(results){
     const data=results.data||[]; 
-    csvData=[]; 
-    csvMarkersLayer.clearLayers(); 
-    routeLayer.clearLayers();
-    activeRouteCoords=[]; 
-    osrmCoords=[];
+    csvData=[]; csvMarkersLayer.clearLayers(); routeLayer.clearLayers(); activeRouteCoords=[]; osrmCoords=[];
     data.forEach((r,i)=>{
       const lat=r.lat!==undefined?r.lat:r.latitude;
       const lon=r.lon!==undefined?r.lon:r.longitude;
-      const status = (String(r.status) === "1") ? "1" : "0";
-      const comment=r.comment||"";
+      const status=(String(r.status)==="1")?"1":"0"; const comment=r.comment||"";
       csvData.push({lat,lon,status,comment});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
       marker.bindPopup(createPopup(csvData[i],marker,i),{minWidth:160});
     });
     buildOptimizedRoute();
+    autoSaveCsv();
   }});
 });
 
-// Сохранение CSV с прямым доступом к Downloads для Android Chrome/Edge
-async function saveCsvFile(csvText, filename){
-  const blob = new Blob([csvText], {type:'text/csv;charset=utf-8;'});
-  if(window.showSaveFilePicker){ // Современные мобильные браузеры
-    try{
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types:[{description:'CSV file', accept:{'text/csv':['.csv']}}]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      alert('Файл сохранен!');
-      return;
-    }catch(e){ console.error(e); }
-  }
-  // fallback для старых браузеров
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),100);
-}
-
-document.getElementById('downloadBtn').addEventListener('click',()=>{
-  if(!csvData.length){ alert('Нет данных'); return; }
-  const csvText = Papa.unparse(csvData);
-  saveCsvFile(csvText, csvFileName || 'updated.csv');
-});
-
+document.getElementById('downloadBtn').addEventListener('click',()=>{ autoSaveCsv(); });
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });
 document.getElementById('refreshBtn').addEventListener('click',()=>{ buildOptimizedRoute(); });
-document.getElementById('clearBtn').addEventListener('click',()=>{ 
-  csvMarkersLayer.clearLayers(); 
-  routeLayer.clearLayers(); 
-  document.getElementById('csvFile').value=''; 
-  csvData=[]; activeRouteCoords=[]; osrmCoords=[]; 
-  infoDistanceEl.textContent='Длина: —'; 
-  infoDurationEl.textContent='Время: —'; 
-});
+document.getElementById('clearBtn').addEventListener('click',()=>{ csvMarkersLayer.clearLayers(); routeLayer.clearLayers(); document.getElementById('csvFile').value=''; csvData=[]; activeRouteCoords=[]; osrmCoords=[]; document.getElementById('info-distance').textContent='Длина: —'; document.getElementById('info-duration').textContent='Время: —'; });
 document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
 </script>
 </body>

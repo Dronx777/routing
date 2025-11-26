@@ -89,8 +89,6 @@ html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-syst
   <span id="info-duration">Время: —</span>
 </div>
 
-<div id="version-label">версия</div>
-
 <div id="map"></div>
 
 <!-- Кнопка центрирования -->
@@ -127,7 +125,7 @@ let lastCsvCoords = [];
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
 
-let autoFollow = true; // автоприлипание включено только в начале
+let autoFollow = true; // флаг автоприлипания
 
 /* ==== Центрирование на пользователе с анимацией ==== */
 function centerOnUser(zoom = 15) {
@@ -148,9 +146,7 @@ function updateUserPosition(position) {
   } else { userMarker.setLatLng(userCoords); }
 
   userMarker.openPopup();
-
-  // центрируем карту только если autoFollow включено
-  if (autoFollow) { centerOnUser(15); }
+  centerOnUser(15);
 
   if (routePointsArray.length) {
     let nearestIndex = 0;
@@ -165,8 +161,6 @@ function updateUserPosition(position) {
     followLineLayer.clearLayers();
     const remaining = [ userCoords, ...routePointsArray.slice(nearestIndex) ];
     L.polyline(remaining, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
-    
-    // не центрируем карту при маршрутизации
   }
 }
 
@@ -224,7 +218,8 @@ function buildRouteFromCoords(coords) {
       const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
       infoDurationEl.textContent = `Время: ${timeStr}`;
 
-      // карта не центрируется при построении маршрута
+      if (userCoords) centerOnUser(15); 
+      else map.setView(tripCoords[0], 13);
     })
     .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
 }
@@ -281,16 +276,6 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   infoDurationEl.textContent = 'Время: —';
 });
 
-  /* ==== Кнопка «Определить GPS» ==== */
-document.getElementById('locBtn').addEventListener('click', () => {
-  if (!userCoords) {
-    // если ещё нет координат, запросим геолокацию
-    requestUserLocation();
-  }
-  autoFollow = true;       // включаем автоприлипание
-  centerOnUser(15);        // центрируем карту на пользователе
-});
-
 /* ==== Кнопка центрирования ==== */
 document.getElementById('centerUserBtn').addEventListener('click', () => {
   if (!userCoords) return;
@@ -298,7 +283,19 @@ document.getElementById('centerUserBtn').addEventListener('click', () => {
   centerOnUser(15);
 });
 
+<!-- Добавляем это перед закрывающим </body> -->
+<div id="version-label">версия</div>
 
+<style>
+#version-label {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  color: #fff;
+  font-size: 14px;
+  z-index: 1200;
+  text-shadow: 0 0 3px rgba(0,0,0,0.7); /* чтобы белый текст был читаем на карте */
+};
 </style>
 </script>
 </body>

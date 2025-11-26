@@ -129,10 +129,50 @@ let autoFollow = true; // флаг автоприлипания
 
 /* ==== Центрирование на пользователе с анимацией ==== */
 function centerOnUser(zoom = 15) {
-  if (userCoords && autoFollow) {
+  if (userCoords) {
     map.flyTo(userCoords, zoom, { duration: 1.0 });
   }
 }
+
+/* ==== Обновление позиции пользователя ==== */
+function updateUserPosition(position) {
+  userCoords = [position.coords.latitude, position.coords.longitude];
+
+  if (!userMarker) {
+    userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
+  } else { userMarker.setLatLng(userCoords); }
+
+  userMarker.openPopup();
+
+  if (autoFollow) { centerOnUser(15); }  // центрируем только если автоприлипание включено
+
+  if (routePointsArray.length) {
+    let nearestIndex = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < routePointsArray.length; i++) {
+      const dLat = routePointsArray[i][0] - userCoords[0];
+      const dLon = routePointsArray[i][1] - userCoords[1];
+      const dist = dLat*dLat + dLon*dLon;
+      if (dist < minDist) { minDist = dist; nearestIndex = i; }
+    }
+
+    followLineLayer.clearLayers();
+    const remaining = [ userCoords, ...routePointsArray.slice(nearestIndex) ];
+    L.polyline(remaining, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
+
+    // центрирование линии следования только если autoFollow
+    if (autoFollow) {
+      const bounds = L.latLngBounds(remaining);
+      map.fitBounds(bounds, { padding: [50,50] });
+    }
+  }
+}
+
+/* ==== Отключение автоприлипания при ручном движении карты ==== */
+map.on('movestart zoomstart', () => { 
+  autoFollow = false; 
+});
+
 
 /* ==== Отключение автоприлипания при ручном движении карты ==== */
 map.on('movestart zoomstart', () => { autoFollow = false; });
@@ -143,14 +183,10 @@ function updateUserPosition(position) {
 
   if (!userMarker) {
     userMarker = L.marker(userCoords).addTo(map).bindPopup('Вы здесь');
-  } else {
-    userMarker.setLatLng(userCoords);
-  }
+  } else { userMarker.setLatLng(userCoords); }
 
   userMarker.openPopup();
-
-  // Центрируем только если автоприлипание включено
-  if (autoFollow) centerOnUser(15);
+  centerOnUser(15);
 
   if (routePointsArray.length) {
     let nearestIndex = 0;
@@ -222,7 +258,7 @@ function buildRouteFromCoords(coords) {
       const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
       infoDurationEl.textContent = `Время: ${timeStr}`;
 
-      if (userCoords && autoFollow) centerOnUser(15); 
+      if (userCoords) centerOnUser(15); 
       else map.setView(tripCoords[0], 13);
     })
     .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
@@ -283,8 +319,8 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 /* ==== Кнопка центрирования ==== */
 document.getElementById('centerUserBtn').addEventListener('click', () => {
   if (!userCoords) return;
-  autoFollow = true;  // включаем автоприлипание заново
-  centerOnUser(15);   // центрируем на пользователе
+  autoFollow = true;
+  centerOnUser(15);
 });
 </script>
 </body>

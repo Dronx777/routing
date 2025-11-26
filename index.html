@@ -72,6 +72,17 @@ html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-syst
 }
 #centerUserBtn:hover { transform: scale(1.1); }
 #centerUserBtn svg { width: 28px; height: 28px; stroke: #0077cc; stroke-width: 2; fill: none; }
+
+/* Надпись версия */
+#version-label {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  color: #000000;
+  font-size: 14px;
+  z-index: 1200;
+  text-shadow: 0 0 3px rgba(0,0,0,0.7);
+}
 </style>
 </head>
 <body>
@@ -101,6 +112,9 @@ html, body { margin:0; padding:0; height:100%; font-family:system-ui,-apple-syst
     <line x1="18" y1="12" x2="22" y2="12"/>
   </svg>
 </button>
+
+<!-- Надпись версия -->
+<div id="version-label">версия 1.0</div>
 
 <script>
 /* ==== Настройки карты ==== */
@@ -282,21 +296,6 @@ document.getElementById('centerUserBtn').addEventListener('click', () => {
   autoFollow = true;
   centerOnUser(15);
 });
-
-<!-- Добавляем это перед закрывающим </body> -->
-<div id="version-label">версия</div>
-
-<style>
-#version-label {
-  position: absolute;
-  bottom: 10px;
-  left: 10px;
-  color: #fff;
-  font-size: 14px;
-  z-index: 1200;
-  text-shadow: 0 0 3px rgba(0,0,0,0.7); /* чтобы белый текст был читаем на карте */
-};
-</style>
 </script>
 </body>
 </html>

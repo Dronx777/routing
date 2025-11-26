@@ -141,7 +141,7 @@ function createPopup(point, marker, index){
   copyBtn.addEventListener('click',()=>{ navigator.clipboard.writeText(latInput.value); copyBtn.textContent='✔'; setTimeout(()=>copyBtn.textContent='📋',1000); });
   latDiv.appendChild(latInput); latDiv.appendChild(copyBtn); container.appendChild(latDiv);
 
-  // STATUS с двумя кнопками
+  // STATUS с кнопками 0/1
   const statusDiv = document.createElement('div');
   statusDiv.style.display = 'flex';
   statusDiv.style.flexDirection = 'column';
@@ -243,15 +243,22 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
   }});
 });
 
+// Исправленная кнопка скачивания для мобильных
 document.getElementById('downloadBtn').addEventListener('click', ()=>{
   if(!csvData.length){ alert('Нет данных'); return; }
-  const csv=Papa.unparse(csvData);
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob); 
-  const link=document.createElement('a'); 
-  link.href=url; 
-  link.download=csvFileName||'updated.csv';
-  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+  const csv = Papa.unparse(csvData);
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', csvFileName || 'updated.csv');
+
+  // Событие MouseEvent, чтобы сработало на мобильных
+  const event = new MouseEvent('click', {view: window, bubbles: true, cancelable: true});
+  link.dispatchEvent(event);
+
+  setTimeout(() => URL.revokeObjectURL(url), 100); // очистка
 });
 
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });

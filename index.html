@@ -243,30 +243,21 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
   }});
 });
 
-// Исправленная кнопка "Скачать"
+// Исправленная кнопка скачивания CSV для мобильных и десктопа
 document.getElementById('downloadBtn').addEventListener('click', ()=>{
   if(!csvData.length){ alert('Нет данных'); return; }
   const csv = Papa.unparse(csvData);
   const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
-  const ua = navigator.userAgent;
-  const isAndroid = /Android/.test(ua);
-  const isIOS = /iPhone|iPad|iPod/.test(ua);
 
-  if(isAndroid || isIOS){
-    // На мобильных: открыть в новой вкладке
-    window.open(url,'_blank');
-    setTimeout(()=>URL.revokeObjectURL(url),2000);
-  } else {
-    // Десктоп: скачивание напрямую
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = csvFileName || 'updated.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(()=>URL.revokeObjectURL(url),200);
-  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFileName || 'updated.csv';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),100);
 });
 
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });

@@ -125,7 +125,7 @@ let lastCsvCoords = [];
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
 
-let autoFollow = true; // включаем автоприлипание в начале
+let autoFollow = true; // автоприлипание включено только в начале
 
 /* ==== Центрирование на пользователе с анимацией ==== */
 function centerOnUser(zoom = 15) {
@@ -163,8 +163,8 @@ function updateUserPosition(position) {
     followLineLayer.clearLayers();
     const remaining = [ userCoords, ...routePointsArray.slice(nearestIndex) ];
     L.polyline(remaining, { color: 'red', weight: 6, opacity: 0.85 }).addTo(followLineLayer);
-
-    // убрали map.fitBounds — маршрутизация не центрирует карту
+    
+    // не центрируем карту при маршрутизации
   }
 }
 
@@ -222,7 +222,7 @@ function buildRouteFromCoords(coords) {
       const timeStr = (totalMinutes < 60) ? `${totalMinutes} мин` : `${Math.floor(totalMinutes/60)} ч ${totalMinutes%60} мин`;
       infoDurationEl.textContent = `Время: ${timeStr}`;
 
-      // убрали автоматическое центрирование маршрута
+      // карта не центрируется при построении маршрута
     })
     .catch(err => { alert('Ошибка OSRM.'); console.error(err); });
 }

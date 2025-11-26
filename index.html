@@ -54,7 +54,6 @@
 <div id="file-input">
   <input type="file" id="csvFile" accept=".csv" />
   <button id="locBtn" type="button">Определить GPS</button>
-  <button id="refreshBtn" type="button">Обновить</button>
   <button id="clearBtn" type="button">Очистить</button>
 </div>
 
@@ -94,6 +93,18 @@ function centerOnUser(zoom = 15) {
   if (userCoords) map.setView(userCoords, zoom);
 }
 
+/* ==== Расстояние между двумя точками в метрах ==== */
+function distanceMeters(coord1, coord2) {
+  const R = 6371000;
+  const lat1 = coord1[0] * Math.PI/180;
+  const lat2 = coord2[0] * Math.PI/180;
+  const dLat = (coord2[0]-coord1[0]) * Math.PI/180;
+  const dLon = (coord2[1]-coord1[1]) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
 /* ==== Обновление позиции пользователя ==== */
 function updateUserPosition(position) {
   userCoords = [position.coords.latitude, position.coords.longitude];
@@ -108,14 +119,18 @@ function updateUserPosition(position) {
   centerOnUser(15);
 
   if (routePointsArray.length) {
-    // поиск ближайшей точки маршрута
+    // ближайшая точка маршрута
     let nearestIndex = 0;
     let minDist = Infinity;
     for (let i = 0; i < routePointsArray.length; i++) {
-      const dLat = routePointsArray[i][0] - userCoords[0];
-      const dLon = routePointsArray[i][1] - userCoords[1];
-      const dist = dLat * dLat + dLon * dLon;
+      const dist = distanceMeters(routePointsArray[i], userCoords);
       if (dist < minDist) { minDist = dist; nearestIndex = i; }
+    }
+
+    // если отошли более чем на 50м от маршрута — перестроить
+    if (minDist > 50) {
+      buildRouteFromCoords(lastCsvCoords);
+      return;
     }
 
     followLineLayer.clearLayers();
@@ -124,7 +139,7 @@ function updateUserPosition(position) {
   }
 }
 
-/* ==== Запрос геолокации (только по клику!) ==== */
+/* ==== Запрос геолокации (по клику) ==== */
 function requestUserLocation() {
   if (!navigator.geolocation) {
     alert('Геолокация не поддерживается устройством.');
@@ -153,7 +168,6 @@ function requestUserLocation() {
 
 /* ==== Построение маршрута из массива координат ==== */
 function buildRouteFromCoords(coords) {
-  // очищаем слои маршрута
   routeLayer.clearLayers();
   followLineLayer.clearLayers();
   routePointsArray = [];
@@ -196,15 +210,6 @@ function buildRouteFromCoords(coords) {
       console.error('OSRM fetch error', err);
       alert('Ошибка OSRM.');
     });
-}
-
-/* ==== Перестроение маршрута ==== */
-function rebuildRoute() {
-  if (!lastCsvCoords.length) {
-    alert('Сначала загрузите CSV.');
-    return;
-  }
-  buildRouteFromCoords(lastCsvCoords);
 }
 
 /* ==== Загрузка CSV ==== */
@@ -253,8 +258,6 @@ document.getElementById('csvFile').addEventListener('change', function (ev) {
 /* ==== Кнопки ==== */
 document.getElementById('locBtn').addEventListener('click', requestUserLocation);
 
-document.getElementById('refreshBtn').addEventListener('click', rebuildRoute);
-
 document.getElementById('clearBtn').addEventListener('click', function () {
   csvMarkersLayer.clearLayers();
   routeLayer.clearLayers();
@@ -265,8 +268,6 @@ document.getElementById('clearBtn').addEventListener('click', function () {
   infoDistanceEl.textContent = 'Длина: —';
   infoDurationEl.textContent = 'Время: —';
 });
-
-/* ==== Конец ==== */
 </script>
 
 </body>

@@ -82,17 +82,21 @@ map.on('movestart zoomstart',()=>{autoFollow=false;});
 
 function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
 
+// ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
   if(!userCoords) return;
+  let changed = false;
   csvData.forEach((p,i)=>{
     if(p.status==="0"){
       const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
       if(d <= 50){
         p.status="1";
         csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
+        changed = true;
       }
     }
   });
+  if(changed) buildOptimizedRoute(); // перестроить маршрут с исключением точек со статусом 1
 }
 
 function updateUserPosition(pos){ 
@@ -110,6 +114,7 @@ function requestUserLocation(){
   navigator.geolocation.getCurrentPosition(updateUserPosition,err=>alert('GPS недоступен'),{enableHighAccuracy:true}); 
 }
 
+// ================= Build OSRM Route =================
 function buildOptimizedRoute(){
   routeLayer.clearLayers();
   activeRouteCoords = csvData.filter(p => String(p.status) === "0").map(p => [Number(p.lat), Number(p.lon)]);
@@ -285,23 +290,28 @@ function startRealNavigation(){
     checkPointsInUserRadius();
     if(autoFollow) centerOnUser();
 
-    // Остаток маршрута
-    let minDist = Infinity, nearestIndex = 0;
-    for(let i=0;i<navRouteCoords.length;i++){
-      const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<minDist){ minDist=dist; nearestIndex=i; }
+    // Остаток маршрута красной линией
+    if(navRouteCoords.length>0){
+      let nearestIndex=0, minDist=Infinity;
+      for(let i=0;i<navRouteCoords.length;i++){
+        const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<minDist){ minDist=dist; nearestIndex=i; }
+      }
+      remainingRouteLayer.clearLayers();
+      let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
+      L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+      let remainingPoints=navRouteCoords.slice(nearestIndex);
+      L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
     }
-    remainingRouteLayer.clearLayers();
-    let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
-    L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-    let remainingPoints=navRouteCoords.slice(nearestIndex);
-    L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
 
   }, err=>alert('Ошибка GPS'), {enableHighAccuracy:true, maximumAge:0, timeout:5000});
 }
 
-function stopRealNavigation(){ if(navWatchId){ navigator.geolocation.clearWatch(navWatchId); navWatchId=null; } if(remainingRouteLayer){ remainingRouteLayer.clearLayers(); } }
+function stopRealNavigation(){ 
+  if(navWatchId){ navigator.geolocation.clearWatch(navWatchId); navWatchId=null; } 
+  if(remainingRouteLayer){ remainingRouteLayer.clearLayers(); } 
+}
 
 document.getElementById('navStartBtn').addEventListener('click', startRealNavigation);
 document.getElementById('navStopBtn').addEventListener('click', stopRealNavigation);

@@ -82,12 +82,26 @@ map.on('movestart zoomstart',()=>{autoFollow=false;});
 
 function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
 
+function checkPointsInUserRadius() {
+  if(!userCoords) return;
+  csvData.forEach((p,i)=>{
+    if(p.status==="0"){
+      const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
+      if(d <= 50){
+        p.status="1";
+        csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
+      }
+    }
+  });
+}
+
 function updateUserPosition(pos){ 
   userCoords=[pos.coords.latitude,pos.coords.longitude]; 
-  if(!userMarker) userMarker = L.circleMarker(userCoords,{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь');
+  if(!userMarker){ userMarker = L.circleMarker(userCoords,{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь'); }
   else userMarker.setLatLng(userCoords);
   if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
   else userRadius.setLatLng(userCoords);
+  checkPointsInUserRadius();
   if(autoFollow) centerOnUser(); 
 }
 
@@ -105,7 +119,7 @@ function buildOptimizedRoute(){
     infoDistanceEl.textContent='Длина: —';
     infoDurationEl.textContent='Время: —';
     navRouteCoords = [];
-    if(remainingRouteLayer) { remainingRouteLayer.clearLayers(); remainingRouteLayer=null; }
+    if(remainingRouteLayer){ remainingRouteLayer.clearLayers(); remainingRouteLayer=null; }
     return;
   }
 
@@ -129,7 +143,7 @@ function buildOptimizedRoute(){
     .catch(err=>{ alert('Ошибка OSRM'); console.error(err); });
 }
 
-// ================= CREATE POPUP с редактированием =================
+// ================= CREATE POPUP =================
 function createPopup(point, marker, index){
   const container=document.createElement('div');
   container.style.display='flex'; container.style.flexDirection='column'; container.style.gap='4px';
@@ -268,22 +282,22 @@ function startRealNavigation(){
     else userMarker.setLatLng(userCoords);
     if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
     else userRadius.setLatLng(userCoords);
+    checkPointsInUserRadius();
     if(autoFollow) centerOnUser();
 
+    // Остаток маршрута
     let minDist = Infinity, nearestIndex = 0;
     for(let i=0;i<navRouteCoords.length;i++){
-      const dx=userCoords[0]-navRouteCoords[i][0];
-      const dy=userCoords[1]-navRouteCoords[i][1];
-      const d=dx*dx+dy*dy;
-      if(d<minDist){ minDist=d; nearestIndex=i; }
+      const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<minDist){ minDist=dist; nearestIndex=i; }
     }
-
     remainingRouteLayer.clearLayers();
-    let points=[];
-    const distToRoute = L.latLng(userCoords).distanceTo(L.latLng(navRouteCoords[nearestIndex]));
-    if(distToRoute>10){ points.push(userCoords); points.push(navRouteCoords[nearestIndex]); }
-    for(let i=nearestIndex;i<navRouteCoords.length;i++){ points.push(navRouteCoords[i]); }
+    let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
     L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+    let remainingPoints=navRouteCoords.slice(nearestIndex);
+    L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+
   }, err=>alert('Ошибка GPS'), {enableHighAccuracy:true, maximumAge:0, timeout:5000});
 }
 

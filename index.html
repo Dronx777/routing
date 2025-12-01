@@ -304,7 +304,28 @@ function startRealNavigation(){
       L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
       let remainingPoints=navRouteCoords.slice(nearestIndex);
       L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-    }
+    
+	// Жёлтая линия 200м
+      let yellowLineCoords=[[userCoords[0],userCoords[1]]];
+      let distAccum = 0;
+      for(let i=nearestIndex; i<navRouteCoords.length-1; i++){
+        const from = L.latLng(navRouteCoords[i]);
+        const to = L.latLng(navRouteCoords[i+1]);
+        const segDist = from.distanceTo(to);
+        if(distAccum + segDist > 200){
+          const remaining = 200 - distAccum;
+          const ratio = remaining/segDist;
+          const lat = from.lat + (to.lat - from.lat) * ratio;
+          const lng = from.lng + (to.lng - from.lng) * ratio;
+          yellowLineCoords.push([lat,lng]);
+          break;
+        } else {
+          yellowLineCoords.push([to.lat,to.lng]);
+          distAccum += segDist;
+        }
+      }
+      L.polyline(yellowLineCoords,{color:'yellow',weight:4,opacity:0.9}).addTo(remainingRouteLayer);
+}
 
   }, err=>alert('Ошибка GPS'), {enableHighAccuracy:true, maximumAge:0, timeout:5000});
 }

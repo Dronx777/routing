@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -30,7 +31,7 @@ button{font-size:14px;padding:4px 6px;}
   <button id="locBtn">GPS</button>
   <button id="refreshBtn">Обновить</button>
   <button id="clearBtn">Очистить</button>
-  <button id="downloadBtn">Скачать</button>
+  <button id="downloadBtn">Сохранить</button>
   <button id="navStartBtn">Старт</button>
   <button id="navStopBtn">Стоп</button>
 </div>
@@ -96,7 +97,7 @@ function checkPointsInUserRadius() {
       }
     }
   });
-  if(changed) buildOptimizedRoute();
+  if(changed) buildOptimizedRoute(); // перестроить маршрут с исключением точек со статусом 1
 }
 
 function updateUserPosition(pos){ 
@@ -154,6 +155,7 @@ function createPopup(point, marker, index){
   container.style.display='flex'; container.style.flexDirection='column'; container.style.gap='4px';
   container.style.fontSize='14px';
 
+  // LAT/LON
   const latDiv=document.createElement('div');
   latDiv.style.display='flex'; latDiv.style.gap='4px';
   const latInput=document.createElement('input');
@@ -171,14 +173,15 @@ function createPopup(point, marker, index){
   copyBtn.addEventListener('click',()=>{ navigator.clipboard.writeText(latInput.value); copyBtn.textContent='✔'; setTimeout(()=>copyBtn.textContent='📋',1000); });
   latDiv.appendChild(latInput); latDiv.appendChild(copyBtn); container.appendChild(latDiv);
 
+  // STATUS
   const statusDiv = document.createElement('div');
   statusDiv.style.display = 'flex';
   statusDiv.style.flexDirection = 'column';
   statusDiv.style.gap = '4px';
   const statusLabel = document.createElement('span'); statusLabel.textContent = 'status:';
   const btnContainer = document.createElement('div'); btnContainer.style.display='flex'; btnContainer.style.gap='4px';
-  const btn0 = document.createElement('button'); btn0.textContent='0';
-  const btn1 = document.createElement('button'); btn1.textContent='1';
+  const btn0 = document.createElement('button'); btn0.textContent='В процессе';
+  const btn1 = document.createElement('button'); btn1.textContent='Выполнено';
   [btn0, btn1].forEach(b => { b.style.fontSize='14px'; b.style.flex='1'; });
   let originalValue = String(point.status);
   function updateButtons() { 
@@ -202,9 +205,9 @@ function createPopup(point, marker, index){
   statusDiv.appendChild(statusLabel); statusDiv.appendChild(btnContainer); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
   container.appendChild(statusDiv);
 
+  // COMMENT
   const commentDiv=document.createElement('div');
-  commentDiv.style.display='flex'; commentDiv.style.flexDirection='column';
-  commentDiv.style.gap='4px';
+  commentDiv.style.display='flex'; commentDiv.style.flexDirection='column'; commentDiv.style.gap='4px';
   const commentLabel=document.createElement('span'); commentLabel.textContent='comment:';
   const commentInput=document.createElement('textarea'); commentInput.value=point.comment||""; commentInput.rows=2; commentInput.style.width='100%'; commentInput.style.fontSize='13px';
   const commentSave=document.createElement('button'); commentSave.textContent='💾'; commentSave.style.display='none'; commentSave.style.fontSize='14px';
@@ -288,7 +291,7 @@ function startRealNavigation(){
     checkPointsInUserRadius();
     if(autoFollow) centerOnUser();
 
-    // ===== Остаток маршрута и первые 200м =====
+    // Остаток маршрута красной линией
     if(navRouteCoords.length>0){
       let nearestIndex=0, minDist=Infinity;
       for(let i=0;i<navRouteCoords.length;i++){
@@ -297,32 +300,10 @@ function startRealNavigation(){
         if(dist<minDist){ minDist=dist; nearestIndex=i; }
       }
       remainingRouteLayer.clearLayers();
-      // Красная линия
       let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
       L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
       let remainingPoints=navRouteCoords.slice(nearestIndex);
       L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-
-      // Жёлтая линия 200м
-      let yellowLineCoords=[[userCoords[0],userCoords[1]]];
-      let distAccum = 0;
-      for(let i=nearestIndex; i<navRouteCoords.length-1; i++){
-        const from = L.latLng(navRouteCoords[i]);
-        const to = L.latLng(navRouteCoords[i+1]);
-        const segDist = from.distanceTo(to);
-        if(distAccum + segDist > 200){
-          const remaining = 200 - distAccum;
-          const ratio = remaining/segDist;
-          const lat = from.lat + (to.lat - from.lat) * ratio;
-          const lng = from.lng + (to.lng - from.lng) * ratio;
-          yellowLineCoords.push([lat,lng]);
-          break;
-        } else {
-          yellowLineCoords.push([to.lat,to.lng]);
-          distAccum += segDist;
-        }
-      }
-      L.polyline(yellowLineCoords,{color:'yellow',weight:4,opacity:0.9}).addTo(remainingRouteLayer);
     }
 
   }, err=>alert('Ошибка GPS'), {enableHighAccuracy:true, maximumAge:0, timeout:5000});

@@ -98,11 +98,6 @@ const infoDurationEl = document.getElementById('info-duration');
 map.on('movestart zoomstart',()=>{autoFollow=false;});
 function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
 
-function rotateMap(angleDeg){
-  const pane = document.querySelector('.leaflet-map-pane');
-  if(pane) pane.style.transform = `rotate(${angleDeg}deg)`; // мгновенный поворот без плавности
-}
-
 function createOrUpdateUserCircle(lat, lon){
   if(userTriangleMarker){ try{ map.removeLayer(userTriangleMarker); }catch(e){} userTriangleMarker=null; }
   if(!userMarker){
@@ -171,16 +166,11 @@ function startRealNavigation(){
 
   navWatchId=navigator.geolocation.watchPosition(pos=>{
     const lat=pos.coords.latitude, lon=pos.coords.longitude;
-    const prevCoords=userCoords ? [userCoords[0],userCoords[1]] : null;
     userCoords=[lat,lon];
     createOrUpdateUserTriangle(lat,lon);
     if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
     else userRadius.setLatLng(userCoords);
 
-    let heading=pos.coords.heading;
-    if(heading===null||isNaN(heading)) heading=prevCoords ? computeHeadingFromCoords(prevCoords,[lat,lon]) : lastHeading || 0;
-    lastHeading=heading;
-    rotateMap(-heading); // мгновенный поворот карты
     if(autoFollow) centerOnUser();
 
     // Остаток маршрута
@@ -192,8 +182,7 @@ function startRealNavigation(){
         if(dist<minDist){ minDist=dist; nearestIndex=i; }
       }
       remainingRouteLayer.clearLayers();
-      let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
-      L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+      L.polyline([[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]],{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
       L.polyline(navRouteCoords.slice(nearestIndex),{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
 
       // Желтая 200м
@@ -209,7 +198,6 @@ function startRealNavigation(){
       }
       L.polyline(yellowLineCoords,{color:'yellow',weight:4,opacity:0.9}).addTo(remainingRouteLayer);
     }
-    lastUserCoords=[lat,lon];
   },err=>console.error(err),{enableHighAccuracy:true,maximumAge:0,timeout:5000});
 }
 
@@ -217,7 +205,6 @@ function stopRealNavigation(){
   if(navWatchId){navigator.geolocation.clearWatch(navWatchId); navWatchId=null;}
   if(remainingRouteLayer){remainingRouteLayer.clearLayers();}
   mapRotationEnabled=false;
-  rotateMap(0);
   if(userTriangleMarker){ try{ map.removeLayer(userTriangleMarker);}catch(e){} userTriangleMarker=null; }
   if(userCoords) createOrUpdateUserCircle(userCoords[0],userCoords[1]);
 }

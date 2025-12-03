@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,6 +21,32 @@ html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,Seg
 #version-label{position:absolute;bottom:10px;left:10px;color:#000;font-size:12px;z-index:1200;text-shadow:0 0 3px rgba(0,0,0,0.7);}
 textarea{resize:none;font-size:13px;}
 button{font-size:14px;padding:4px 6px;}
+
+/* Плавный поворот карты */
+.leaflet-map-pane {
+  transition: transform 0.18s linear;
+  transform-origin: 50% 50%;
+}
+
+/* Стиль белого треугольника (указывающего вверх по умолчанию) */
+.userTriangle {
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 18px solid white; /* треугольник указывает вверх */
+  filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+  transform-origin: 50% 60%;
+  /* чтобы триугольник не перекрывал точную позицию — немного сдвинем вверх через margin */
+  margin-top: -12px;
+  margin-left: -0px;
+  pointer-events: none;
+}
+
+/* Скрываем поворотные артефакты у некоторых слоёв (опционально) */
+.leaflet-control-container { transform-origin: 50% 50%; }
+
+/* Когда нужен "синий кружок" — стандартные стили CircleMarker используются */
 </style>
 </head>
 <body>
@@ -63,7 +88,8 @@ L.control.zoom({position:'bottomleft'}).addTo(map);
 
 let csvMarkersLayer = L.layerGroup().addTo(map);
 let routeLayer = L.layerGroup().addTo(map);
-let userMarker = null;
+let userMarker = null;            // circle marker (синий кружок)
+let userTriangleMarker = null;    // divIcon triangle
 let autoFollow = true;
 let csvData = [];
 let csvFileName = '';
@@ -75,6 +101,10 @@ let userRadius = null;
 let navRouteCoords = [];
 let navWatchId = null;
 let remainingRouteLayer = null;
+
+let mapRotationEnabled = false; // флаг — включено ли вращение карты
+let lastUserCoords = null;      // для вычисления азимута при отсутствии heading
+let lastHeading = 0;
 
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
@@ -92,7 +122,8 @@ function checkPointsInUserRadius() {
       const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
       if(d <= 50){
         p.status="1";
-        csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
+        const layer = csvMarkersLayer.getLayers()[i];
+        if(layer && layer.setStyle) layer.setStyle({color:'green', fillColor:'green'});
         changed = true;
       }
     }
@@ -100,19 +131,64 @@ function checkPointsInUserRadius() {
   if(changed) buildOptimizedRoute(); // перестроить маршрут с исключением точек со статусом 1
 }
 
-function updateUserPosition(pos){ 
-  userCoords=[pos.coords.latitude,pos.coords.longitude]; 
-  if(!userMarker){ userMarker = L.circleMarker(userCoords,{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь'); }
-  else userMarker.setLatLng(userCoords);
-  if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
-  else userRadius.setLatLng(userCoords);
-  checkPointsInUserRadius();
-  if(autoFollow) centerOnUser(); 
+// ВСПОМОГАТЕЛЬ: поворот map pane
+function rotateMap(angleDeg){
+  const pane = document.querySelector('.leaflet-map-pane');
+  if(!pane) return;
+  pane.style.transform = `rotate(${angleDeg}deg)`;
 }
 
-function requestUserLocation(){ 
-  if(!navigator.geolocation){alert('Геолокация не поддерживается');return;} 
-  navigator.geolocation.getCurrentPosition(updateUserPosition,err=>alert('GPS недоступен'),{enableHighAccuracy:true}); 
+// Создание/обновление синего кружка
+function createOrUpdateUserCircle(lat, lon){
+  if(userTriangleMarker){
+    try{ map.removeLayer(userTriangleMarker); }catch(e){}
+    userTriangleMarker = null;
+  }
+  if(!userMarker){
+    userMarker = L.circleMarker([lat,lon],{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь');
+  } else {
+    userMarker.setLatLng([lat,lon]);
+    // восстановим стиль на случай, если он менялся
+    userMarker.setStyle({radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8});
+  }
+}
+
+// Создание/обновление треугольника (divIcon)
+function createOrUpdateUserTriangle(lat, lon){
+  // удаляем синий кружок
+  if(userMarker){
+    try{ map.removeLayer(userMarker); }catch(e){}
+    userMarker = null;
+  }
+  const html = '<div class="userTriangle"></div>';
+  const icon = L.divIcon({
+    html: html,
+    className: '', // используем собственный класс в html
+    iconSize: [24,24],
+    iconAnchor: [12,12]
+  });
+  if(!userTriangleMarker){
+    userTriangleMarker = L.marker([lat, lon], {icon: icon, interactive:false}).addTo(map);
+  } else {
+    userTriangleMarker.setIcon(icon);
+    userTriangleMarker.setLatLng([lat, lon]);
+  }
+}
+
+// Вычисление азимута (heading) в градусах от северa (0..360)
+// pos может быть объект позиции (pos.coords) или пара координат
+function computeHeadingFromCoords(prev, curr){
+  // prev and curr are [lat, lon]
+  const lat1 = prev[0] * Math.PI/180;
+  const lon1 = prev[1] * Math.PI/180;
+  const lat2 = curr[0] * Math.PI/180;
+  const lon2 = curr[1] * Math.PI/180;
+  const dLon = lon2 - lon1;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+  let brng = Math.atan2(y, x) * 180/Math.PI;
+  brng = (brng + 360) % 360;
+  return brng;
 }
 
 // ================= Build OSRM Route =================
@@ -280,16 +356,56 @@ document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userC
 function startRealNavigation(){
   if(!navRouteCoords.length){ alert('Нет маршрута для навигации'); return; }
   if(!navigator.geolocation){ alert('Геолокация не поддерживается'); return; }
+  // включаем режим поворота карты и треугольника
+  mapRotationEnabled = true;
+
+  // создаём треугольник вместо кружка в текущей позиции (если есть)
+  if(userCoords) createOrUpdateUserTriangle(userCoords[0], userCoords[1]);
   if(navWatchId) navigator.geolocation.clearWatch(navWatchId);
   if(!remainingRouteLayer) remainingRouteLayer = L.layerGroup().addTo(map);
+
   navWatchId = navigator.geolocation.watchPosition(pos=>{
-    userCoords=[pos.coords.latitude,pos.coords.longitude];
-    if(!userMarker){ userMarker = L.circleMarker(userCoords,{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь'); }
-    else userMarker.setLatLng(userCoords);
+    // обновляем координаты
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const prevCoords = userCoords ? [userCoords[0], userCoords[1]] : null;
+    userCoords=[lat,lon];
+
+    // обновляем либо треугольник, либо кружок (в режиме nav используется треугольник)
+    if(mapRotationEnabled){
+      createOrUpdateUserTriangle(lat, lon);
+    } else {
+      createOrUpdateUserCircle(lat, lon);
+    }
+
     if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
     else userRadius.setLatLng(userCoords);
+
     checkPointsInUserRadius();
+
     if(autoFollow) centerOnUser();
+
+    // вычисляем heading
+    let heading = null;
+    if(pos.coords.heading !== null && !isNaN(pos.coords.heading)){
+      heading = pos.coords.heading; // degree from north
+    } else if(prevCoords){
+      // используем последние две точки для вычисления направления
+      heading = computeHeadingFromCoords(prevCoords, [lat,lon]);
+    } else {
+      heading = lastHeading || 0;
+    }
+    lastHeading = heading;
+
+    // Поворачиваем карту так, чтобы направление движения было "вверх"
+    if(mapRotationEnabled && typeof heading === 'number'){
+      // rotate map pane by negative heading (so that heading points up)
+      rotateMap(-heading);
+      // the triangle is a DOM element inside rotated pane; since we rotated the pane
+      // and the triangle's default points up, it will appear pointing in movement direction (up).
+      // ensure marker is at updated coords
+      if(userTriangleMarker) userTriangleMarker.setLatLng([lat, lon]);
+    }
 
     // Остаток маршрута красной линией
     if(navRouteCoords.length>0){
@@ -305,7 +421,7 @@ function startRealNavigation(){
       let remainingPoints=navRouteCoords.slice(nearestIndex);
       L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
     
-	// Жёлтая линия 200м
+      // Жёлтая линия 200м
       let yellowLineCoords=[[userCoords[0],userCoords[1]]];
       let distAccum = 0;
       for(let i=nearestIndex; i<navRouteCoords.length-1; i++){
@@ -315,9 +431,9 @@ function startRealNavigation(){
         if(distAccum + segDist > 200){
           const remaining = 200 - distAccum;
           const ratio = remaining/segDist;
-          const lat = from.lat + (to.lat - from.lat) * ratio;
-          const lng = from.lng + (to.lng - from.lng) * ratio;
-          yellowLineCoords.push([lat,lng]);
+          const latPart = from.lat + (to.lat - from.lat) * ratio;
+          const lngPart = from.lng + (to.lng - from.lng) * ratio;
+          yellowLineCoords.push([latPart,lngPart]);
           break;
         } else {
           yellowLineCoords.push([to.lat,to.lng]);
@@ -325,18 +441,78 @@ function startRealNavigation(){
         }
       }
       L.polyline(yellowLineCoords,{color:'yellow',weight:4,opacity:0.9}).addTo(remainingRouteLayer);
-}
+    }
 
-  }, err=>alert('Ошибка GPS'), {enableHighAccuracy:true, maximumAge:0, timeout:5000});
+    // сохраняем prev
+    lastUserCoords = [lat, lon];
+
+  }, err=>{
+    console.error(err);
+    alert('Ошибка GPS: ' + (err && err.message ? err.message : 'unknown'));
+  }, {enableHighAccuracy:true, maximumAge:0, timeout:5000});
 }
 
 function stopRealNavigation(){ 
+  // отключаем watch и очищаем слой
   if(navWatchId){ navigator.geolocation.clearWatch(navWatchId); navWatchId=null; } 
   if(remainingRouteLayer){ remainingRouteLayer.clearLayers(); } 
+
+  // отключаем вращение карты
+  mapRotationEnabled = false;
+  rotateMap(0);
+
+  // вернуть синюю метку
+  if(userTriangleMarker){
+    try{ map.removeLayer(userTriangleMarker); }catch(e){}
+    userTriangleMarker = null;
+  }
+  if(userCoords) createOrUpdateUserCircle(userCoords[0], userCoords[1]);
 }
 
-document.getElementById('navStartBtn').addEventListener('click', startRealNavigation);
-document.getElementById('navStopBtn').addEventListener('click', stopRealNavigation);
+document.getElementById('navStartBtn').addEventListener('click', ()=>{
+  // если нет маршрута — оповещаем
+  if(!navRouteCoords || navRouteCoords.length===0){
+    alert('Нет маршрута для навигации');
+    return;
+  }
+  // включаем авто-слежение при старте
+  autoFollow = true;
+  startRealNavigation();
+});
+
+document.getElementById('navStopBtn').addEventListener('click', ()=>{
+  stopRealNavigation();
+  // центрируем карту на пользователя (без вращения) и ставим север вверх
+  if(userCoords){
+    map.setView(userCoords, map.getZoom());
+  }
+  // также можно вернуть автоFollow = false; но оставим текущее поведение
+});
+
+// если пользователь вручную центрует — включаем автоFollow
+document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
+
+// ================= helper functions =================
+function updateUserPosition(pos){ 
+  userCoords=[pos.coords.latitude,pos.coords.longitude]; 
+  // при простом получении позиции — используем синий кружок, если навигация не включена
+  if(!mapRotationEnabled){
+    if(!userMarker){ userMarker = L.circleMarker(userCoords,{radius:6,color:'#0077cc',fillColor:'#0077cc',fillOpacity:0.8}).addTo(map).bindPopup('Вы здесь'); }
+    else userMarker.setLatLng(userCoords);
+  } else {
+    // если режим навигации включен — обновим треугольник
+    createOrUpdateUserTriangle(userCoords[0], userCoords[1]);
+  }
+  if(!userRadius) userRadius = L.circle(userCoords,{radius:50,color:'black',weight:1,fillOpacity:0}).addTo(map);
+  else userRadius.setLatLng(userCoords);
+  checkPointsInUserRadius();
+  if(autoFollow) centerOnUser(); 
+}
+
+function requestUserLocation(){ 
+  if(!navigator.geolocation){alert('Геолокация не поддерживается');return;} 
+  navigator.geolocation.getCurrentPosition(updateUserPosition,err=>alert('GPS недоступен'),{enableHighAccuracy:true}); 
+}
 
 </script>
 </body>

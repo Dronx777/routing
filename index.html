@@ -89,7 +89,30 @@ function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{durati
 
 async function loadBufferPolygon(){
   try{
-    const geojson = await shp("buf.zip");
+
+    const response = await fetch("buf.zip");
+    const arrayBuffer = await response.arrayBuffer();
+
+    const geojson = await shp(arrayBuffer);
+
+    // если есть CRS в geojson — преобразуем
+    if(geojson.crs && geojson.crs.properties && geojson.crs.properties.name){
+
+      const sourceProj = geojson.crs.properties.name;
+      const destProj = "EPSG:4326"; // WGS84
+
+      function transformCoords(coords){
+        if(typeof coords[0] === "number"){
+          const p = proj4(sourceProj, destProj, coords);
+          return [p[0], p[1]];
+        }
+        return coords.map(transformCoords);
+      }
+
+      geojson.features.forEach(f=>{
+        f.geometry.coordinates = transformCoords(f.geometry.coordinates);
+      });
+    }
 
     if(bufferLayer) map.removeLayer(bufferLayer);
 
@@ -101,11 +124,8 @@ async function loadBufferPolygon(){
       }
     }).addTo(map);
 
-    // приблизить карту к полигону
-    map.fitBounds(bufferLayer.getBounds());
-
   }catch(err){
-    console.warn("Не удалось загрузить buf.zip", err);
+    console.warn("Ошибка загрузки buf.zip", err);
   }
 }
 

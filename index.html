@@ -72,6 +72,8 @@ let userCoords = null;
 let activeRouteCoords = [];
 let osrmCoords = [];
 let userRadius = null;
+	
+let bufferLayer = null;
 
 let navRouteCoords = [];
 let navWatchId = null;
@@ -84,6 +86,31 @@ map.on('movestart zoomstart',()=>{autoFollow=false;});
 
 function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{duration:1.0}); }
 
+
+async function loadBufferPolygon(){
+  try{
+    const geojson = await shp("buf.zip");
+
+    if(bufferLayer) map.removeLayer(bufferLayer);
+
+    bufferLayer = L.geoJSON(geojson,{
+      style:{
+        color:'#0066ff',
+        weight:2,
+        fillOpacity:0
+      }
+    }).addTo(map);
+
+    // приблизить карту к полигону
+    map.fitBounds(bufferLayer.getBounds());
+
+  }catch(err){
+    console.warn("Не удалось загрузить buf.zip", err);
+  }
+}
+
+loadBufferPolygon();
+	
 // ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
   if(!userCoords) return;

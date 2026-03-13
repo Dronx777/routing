@@ -96,20 +96,36 @@ function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{durati
 
 // ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
+
   if(!userCoords) return;
-  let changed = false;
-  csvData.forEach((p,i)=>{
+
+  csvData.forEach((p)=>{
+
     if(p.status==="0"){
-      const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
+
+      const d = L.latLng(userCoords).distanceTo(
+        L.latLng([p.lat,p.lon])
+      );
+
       if(d <= 50){
+
         p.status="1";
-        csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
-        changed = true;
+
+        if(p.marker){
+          p.marker.setStyle({
+            color:'green',
+            fillColor:'green'
+          });
+        }
+
       }
+
     }
+
   });
-  
+
 }
+
 
 function updateUserPosition(pos){ 
   userCoords=[pos.coords.latitude,pos.coords.longitude]; 
@@ -255,9 +271,10 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       const status = (String(r.status) === "1") ? "1" : "0";
       const comment=r.comment||"";
 	  const count=r.count||"";
-      csvData.push({lat,lon,status,comment,count});
+      csvData.push({lat,lon,status,comment,count,marker:null});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
+		csvData[i].marker = marker;
 		
 		// подпись count над точкой
 if(count !== ""){

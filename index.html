@@ -23,6 +23,16 @@ html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,Seg
 #version-label{position:absolute;bottom:10px;left:10px;color:#000;font-size:12px;z-index:1200;text-shadow:0 0 3px rgba(0,0,0,0.7);}
 textarea{resize:none;font-size:13px;}
 button{font-size:14px;padding:4px 6px;}
+
+.marker-label{
+  font-size:12px;
+  font-weight:bold;
+  color:#000;
+  text-align:center;
+  transform:translate(-50%,-22px);
+  white-space:nowrap;
+}
+	
 </style>
 </head>
 <body>
@@ -244,9 +254,21 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       const lon=r.lon!==undefined?r.lon:r.longitude;
       const status = (String(r.status) === "1") ? "1" : "0";
       const comment=r.comment||"";
-      csvData.push({lat,lon,status,comment});
+	  const count=r.count||"";
+      csvData.push({lat,lon,status,comment,count});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
+		// подпись count над точкой
+if(count !== ""){
+  const label = L.marker([lat,lon],{
+    icon: L.divIcon({
+      className:'marker-label',
+      html: count,
+      iconSize:[30,12]
+    }),
+    interactive:false
+  }).addTo(csvMarkersLayer);
+}
       marker.bindPopup(createPopup(csvData[i],marker,i),{minWidth:160});
     });
     buildOptimizedRoute();

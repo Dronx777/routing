@@ -258,13 +258,15 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       csvData.push({lat,lon,status,comment,count});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
+		
 		// подпись count над точкой
 if(count !== ""){
   const label = L.marker([lat,lon],{
     icon: L.divIcon({
       className:'marker-label',
       html: count,
-      iconSize:[30,12]
+      iconSize:[30,12],
+      iconAnchor:[-10,10] // смещение подписи
     }),
     interactive:false
   }).addTo(csvMarkersLayer);

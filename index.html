@@ -139,6 +139,9 @@ function requestUserLocation(){
 
 // ================= Build OSRM Route =================
 function buildOptimizedRoute(){
+	navRouteCoords = [];
+if(remainingRouteLayer) remainingRouteLayer.clearLayers();
+
   routeLayer.clearLayers();
   activeRouteCoords = csvData.filter(p => String(p.status) === "0").map(p => [Number(p.lat), Number(p.lon)]);
   osrmCoords = [...activeRouteCoords];

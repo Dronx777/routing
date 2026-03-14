@@ -106,6 +106,8 @@ function checkPointsInUserRadius() {
 
       if(d <= 50){
   p.status="1";
+		  // перейти к следующей активной точке маршрута
+  nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
 
   if(p.marker){
     p.marker.setStyle({
@@ -400,7 +402,7 @@ function startRealNavigation(){
     // Остаток маршрута красной линией
     if(navRouteCoords.length>0){
       let minDist=Infinity;
-		nearestIndex=0;
+		// nearestIndex=0;
       for(let i=0;i<navRouteCoords.length;i++){
         const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
         const dist=Math.sqrt(dx*dx+dy*dy);

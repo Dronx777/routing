@@ -232,6 +232,7 @@ function createPopup(point, marker, index){
   // если точка выполнена — перейти к следующей
   if(originalValue === "1"){
     nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+	  drawRemainingRoute();
   }
 
   saveBtn.style.display='none';
@@ -380,6 +381,22 @@ function getNextActiveRoutePointIndex(startIndex){
   return startIndex;
 
 }
+
+function drawRemainingRoute(){
+
+  if(!userCoords || !navRouteCoords.length) return;
+
+  if(!remainingRouteLayer) remainingRouteLayer = L.layerGroup().addTo(map);
+
+  remainingRouteLayer.clearLayers();
+
+  let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
+  L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+
+  let remainingPoints=navRouteCoords.slice(nearestIndex);
+  L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+
+}
 	
 
 // ================= REAL GPS NAVIGATION =================
@@ -409,11 +426,7 @@ function startRealNavigation(){
 		// перейти к следующей невыполненной точке
 	nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
 		
-      remainingRouteLayer.clearLayers();
-      let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
-      L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-      let remainingPoints=navRouteCoords.slice(nearestIndex);
-      L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+drawRemainingRoute();
     
 	// Жёлтая линия 200м
       let yellowLineCoords=[[userCoords[0],userCoords[1]]];

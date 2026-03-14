@@ -97,36 +97,51 @@ function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{durati
 
 // ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
+
   if(!userCoords) return;
 
+  let changed = false;
+
   csvData.forEach((p)=>{
-    if(p.status==="0"){
+
+    if(p.status === "0"){
 
       const d = L.latLng(userCoords).distanceTo([p.lat,p.lon]);
 
-   if(d <= 50){
-  p.status = "1";
+      if(d <= 50){
 
-  if(p.marker){
-    p.marker.setStyle({
-      color:'green',
-      fillColor:'green'
-    });
+        p.status = "1";
+        changed = true;
 
-    p.marker.setPopupContent(createPopup(p, p.marker, csvData.indexOf(p)));
-  }
+        if(p.marker){
+          p.marker.setStyle({
+            color:'green',
+            fillColor:'green'
+          });
 
-  // перейти к следующей активной точке
-  nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+          p.marker.setPopupContent(
+            createPopup(p, p.marker, csvData.indexOf(p))
+          );
+        }
 
-  // очистить старый красный маршрут
-  if(remainingRouteLayer){
-    remainingRouteLayer.clearLayers();
-  }
-}
+      }
 
     }
+
   });
+
+  // если хотя бы одна точка изменилась
+  if(changed){
+
+    // перестроить маршрут без выполненных точек
+    buildOptimizedRoute();
+
+    // очистить красный маршрут навигации
+    if(remainingRouteLayer){
+      remainingRouteLayer.clearLayers();
+    }
+
+  }
 
 }
 
@@ -412,7 +427,25 @@ function getNextActiveRoutePointIndex(startIndex){
   return startIndex;
 
 }
-	
+
+	function getNextActiveRouteIndex(startIndex){
+
+  for(let i=startIndex;i<navRouteCoords.length;i++){
+
+    const coord = navRouteCoords[i];
+
+    const found = csvData.find(p =>
+      p.status === "0" &&
+      Math.abs(p.lat - coord[0]) < 0.0001 &&
+      Math.abs(p.lon - coord[1]) < 0.0001
+    );
+
+    if(found) return i;
+
+  }
+
+  return startIndex;
+}
 
 // ================= REAL GPS NAVIGATION =================
 function startRealNavigation(){
@@ -431,9 +464,21 @@ function startRealNavigation(){
 
     // Остаток маршрута красной линией
     if(navRouteCoords.length>0){
-      let minDist=Infinity;
-		nearestIndex=0;
-      for(let i=0;i<navRouteCoords.length;i++){
+      let nearestIndex = 0;
+let minDist = Infinity;
+
+for(let i=0;i<navRouteCoords.length;i++){
+
+  const dx=userCoords[0]-navRouteCoords[i][0];
+  const dy=userCoords[1]-navRouteCoords[i][1];
+  const dist=dx*dx+dy*dy;
+
+  if(dist<minDist){
+    minDist=dist;
+    nearestIndex=i;
+  }
+
+}
         const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
         const dist=Math.sqrt(dx*dx+dy*dy);
         if(dist<minDist){ minDist=dist; nearestIndex=i; }

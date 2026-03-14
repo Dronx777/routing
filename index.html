@@ -221,6 +221,7 @@ function createPopup(point, marker, index){
   btn0.addEventListener('click',()=>{ originalValue='0'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
   btn1.addEventListener('click',()=>{ originalValue='1'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
  saveBtn.addEventListener('click',()=>{
+
   point.status = originalValue;
   csvData[index].status = originalValue;
 
@@ -229,17 +230,37 @@ function createPopup(point, marker, index){
     fillColor: originalValue==='0'?'red':'green'
   });
 
-  // если точка выполнена — перейти к следующей
+  // если точка выполнена
   if(originalValue === "1"){
-    nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
-	  drawRemainingRoute();
+
+    // найти следующую активную точку
+    const nextPoint = csvData.find(p => p.status === "0");
+
+    if(nextPoint){
+
+      // найти её место на линии маршрута
+      for(let i=0;i<navRouteCoords.length;i++){
+
+        if(
+          Math.abs(navRouteCoords[i][0] - nextPoint.lat) < 0.00001 &&
+          Math.abs(navRouteCoords[i][1] - nextPoint.lon) < 0.00001
+        ){
+          nearestIndex = i;
+          break;
+        }
+
+      }
+
+    }
+
+    drawRemainingRoute();
   }
 
   saveBtn.style.display='none';
   cancelBtn.style.display='none';
 
-//  buildOptimizedRoute();
 });
+
 
   
   cancelBtn.addEventListener('click',()=>{ originalValue = point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });

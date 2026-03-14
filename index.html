@@ -337,7 +337,12 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   infoDistanceEl.textContent='Длина: —'; 
   infoDurationEl.textContent='Время: —'; 
 });
-document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
+document.getElementById('centerUserBtn').addEventListener('click',()=>{ 
+  if(userCoords){ 
+    autoFollow=true; 
+    centerOnUser(17); 
+  } 
+});
 
 // ================= REAL GPS NAVIGATION =================
 function startRealNavigation(){

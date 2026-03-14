@@ -104,17 +104,18 @@ function checkPointsInUserRadius() {
       const d = L.latLng(userCoords).distanceTo([p.lat,p.lon]);
 
       if(d <= 50){
+  p.status="1";
 
-        p.status="1";
+  if(p.marker){
+    p.marker.setStyle({
+      color:'green',
+      fillColor:'green'
+    });
 
-        if(p.marker){
-          p.marker.setStyle({
-            color:'green',
-            fillColor:'green'
-          });
-        }
-
-      }
+    // обновить popup чтобы статус стал "Выполнено"
+    p.marker.setPopupContent(createPopup(p, p.marker, csvData.indexOf(p)));
+  }
+}
 
     }
   });

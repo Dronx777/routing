@@ -86,26 +86,7 @@ let userRadius = null;
 let navRouteCoords = [];
 let navWatchId = null;
 let remainingRouteLayer = null;
-	
-function getNextActiveRoutePointIndex(startIndex){
 
-  for(let i=startIndex;i<navRouteCoords.length;i++){
-
-    const coord = navRouteCoords[i];
-
-    const found = csvData.find(p =>
-      p.status === "0" &&
-      Math.abs(p.lat - coord[0]) < 0.0001 &&
-      Math.abs(p.lon - coord[1]) < 0.0001
-    );
-
-    if(found) return i;
-
-  }
-
-  return startIndex;
-}
-	
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
 
@@ -343,9 +324,6 @@ function startRealNavigation(){
         const dist=Math.sqrt(dx*dx+dy*dy);
         if(dist<minDist){ minDist=dist; nearestIndex=i; }
       }
-		// пропустить выполненные точки
-nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
-		
       remainingRouteLayer.clearLayers();
       let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
       L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);

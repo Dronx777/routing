@@ -104,8 +104,8 @@ function checkPointsInUserRadius() {
 
       const d = L.latLng(userCoords).distanceTo([p.lat,p.lon]);
 
-      if(d <= 50){
-  p.status="1";
+   if(d <= 50){
+  p.status = "1";
 
   if(p.marker){
     p.marker.setStyle({
@@ -113,8 +113,15 @@ function checkPointsInUserRadius() {
       fillColor:'green'
     });
 
-    // обновить popup чтобы статус стал "Выполнено"
     p.marker.setPopupContent(createPopup(p, p.marker, csvData.indexOf(p)));
+  }
+
+  // перейти к следующей активной точке
+  nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+
+  // очистить старый красный маршрут
+  if(remainingRouteLayer){
+    remainingRouteLayer.clearLayers();
   }
 }
 

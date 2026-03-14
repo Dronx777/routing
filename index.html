@@ -463,9 +463,10 @@ function startRealNavigation(){
     if(autoFollow) centerOnUser();
 
     // Остаток маршрута красной линией
+let nearestIndex = 0;
+
 if(navRouteCoords.length > 0){
 
-  let nearestIndex = 0;
   let minDist = Infinity;
 
   for(let i=0;i<navRouteCoords.length;i++){

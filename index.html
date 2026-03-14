@@ -343,7 +343,20 @@ document.getElementById('downloadBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });
-document.getElementById('refreshBtn').addEventListener('click',()=>{ buildOptimizedRoute(); });
+document.getElementById('refreshBtn').addEventListener('click',()=>{
+
+  // сброс текущего индекса маршрута
+  nearestIndex = 0;
+
+  // очистить красный маршрут
+  if(remainingRouteLayer){
+    remainingRouteLayer.clearLayers();
+  }
+
+  // перестроить маршрут только по точкам status=0
+  buildOptimizedRoute();
+
+});
 document.getElementById('clearBtn').addEventListener('click',()=>{ 
   csvMarkersLayer.clearLayers(); 
   routeLayer.clearLayers(); 

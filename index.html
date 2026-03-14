@@ -463,34 +463,40 @@ function startRealNavigation(){
     if(autoFollow) centerOnUser();
 
     // Остаток маршрута красной линией
-    if(navRouteCoords.length>0){
-      let nearestIndex = 0;
-let minDist = Infinity;
+if(navRouteCoords.length > 0){
 
-for(let i=0;i<navRouteCoords.length;i++){
+  let nearestIndex = 0;
+  let minDist = Infinity;
 
-  const dx=userCoords[0]-navRouteCoords[i][0];
-  const dy=userCoords[1]-navRouteCoords[i][1];
-  const dist=dx*dx+dy*dy;
+  for(let i=0;i<navRouteCoords.length;i++){
 
-  if(dist<minDist){
-    minDist=dist;
-    nearestIndex=i;
+    const dx = userCoords[0] - navRouteCoords[i][0];
+    const dy = userCoords[1] - navRouteCoords[i][1];
+    const dist = dx*dx + dy*dy;
+
+    if(dist < minDist){
+      minDist = dist;
+      nearestIndex = i;
+    }
+
   }
 
+  // перейти к следующей невыполненной точке
+  nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+
+  remainingRouteLayer.clearLayers();
+
+  let points = [
+    [userCoords[0],userCoords[1]],
+    navRouteCoords[nearestIndex]
+  ];
+
+  L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+
+  let remainingPoints = navRouteCoords.slice(nearestIndex);
+
+  L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
 }
-        const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
-        const dist=Math.sqrt(dx*dx+dy*dy);
-        if(dist<minDist){ minDist=dist; nearestIndex=i; }
-      }
-		// перейти к следующей невыполненной точке
-	nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
-		
-      remainingRouteLayer.clearLayers();
-      let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
-      L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-      let remainingPoints=navRouteCoords.slice(nearestIndex);
-      L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
     
 	// Жёлтая линия 200м
       let yellowLineCoords=[[userCoords[0],userCoords[1]]];

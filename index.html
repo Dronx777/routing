@@ -82,12 +82,30 @@ let userCoords = null;
 let activeRouteCoords = [];
 let osrmCoords = [];
 let userRadius = null;
-let nearestIndex = 0;
 
 let navRouteCoords = [];
 let navWatchId = null;
 let remainingRouteLayer = null;
+	
+function getNextActiveRoutePointIndex(startIndex){
 
+  for(let i=startIndex;i<navRouteCoords.length;i++){
+
+    const coord = navRouteCoords[i];
+
+    const found = csvData.find(p =>
+      p.status === "0" &&
+      Math.abs(p.lat - coord[0]) < 0.0001 &&
+      Math.abs(p.lon - coord[1]) < 0.0001
+    );
+
+    if(found) return i;
+
+  }
+
+  return startIndex;
+}
+	
 const infoDistanceEl = document.getElementById('info-distance');
 const infoDurationEl = document.getElementById('info-duration');
 
@@ -97,54 +115,20 @@ function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{durati
 
 // ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
-
   if(!userCoords) return;
-
   let changed = false;
-
-  csvData.forEach((p)=>{
-
-    if(p.status === "0"){
-
-      const d = L.latLng(userCoords).distanceTo([p.lat,p.lon]);
-
+  csvData.forEach((p,i)=>{
+    if(p.status==="0"){
+      const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
       if(d <= 50){
-
-        p.status = "1";
+        p.status="1";
+        csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
         changed = true;
-
-        if(p.marker){
-          p.marker.setStyle({
-            color:'green',
-            fillColor:'green'
-          });
-
-          p.marker.setPopupContent(
-            createPopup(p, p.marker, csvData.indexOf(p))
-          );
-        }
-
       }
-
     }
-
   });
-
-  // если хотя бы одна точка изменилась
-  if(changed){
-
-    // перестроить маршрут без выполненных точек
-    buildOptimizedRoute();
-
-    // очистить красный маршрут навигации
-    if(remainingRouteLayer){
-      remainingRouteLayer.clearLayers();
-    }
-
-  }
-
+  if(changed) buildOptimizedRoute(); // перестроить маршрут с исключением точек со статусом 1
 }
-
 
 function updateUserPosition(pos){ 
   userCoords=[pos.coords.latitude,pos.coords.longitude]; 
@@ -163,9 +147,6 @@ function requestUserLocation(){
 
 // ================= Build OSRM Route =================
 function buildOptimizedRoute(){
-	navRouteCoords = [];
-if(remainingRouteLayer) remainingRouteLayer.clearLayers();
-
   routeLayer.clearLayers();
   activeRouteCoords = csvData.filter(p => String(p.status) === "0").map(p => [Number(p.lat), Number(p.lon)]);
   osrmCoords = [...activeRouteCoords];
@@ -242,39 +223,13 @@ function createPopup(point, marker, index){
   const cancelBtn = document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none'; cancelBtn.style.fontSize='14px';
   btn0.addEventListener('click',()=>{ originalValue='0'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
   btn1.addEventListener('click',()=>{ originalValue='1'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
- 
-	saveBtn.addEventListener('click',()=>{
-
-  point.status = originalValue;
-  csvData[index].status = originalValue;
-
-  marker.setStyle({
-    color: originalValue==='0' ? 'red' : 'green',
-    fillColor: originalValue==='0' ? 'red' : 'green'
+  saveBtn.addEventListener('click',()=>{
+    point.status = originalValue;
+    csvData[index].status = originalValue;
+    marker.setStyle({color: originalValue==='0'?'red':'green', fillColor: originalValue==='0'?'red':'green'});
+    saveBtn.style.display='none'; cancelBtn.style.display='none';
+    buildOptimizedRoute();
   });
-
-  // если точка выполнена
-  if(originalValue === "1"){
-
-    // перейти к следующей точке маршрута
-    nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
-
-    // очистить красный маршрут
-    if(remainingRouteLayer){
-      remainingRouteLayer.clearLayers();
-    }
-  }
-
-  saveBtn.style.display='none';
-  cancelBtn.style.display='none';
-
-  // перестроить основной маршрут (синий)
-  buildOptimizedRoute();
-
-});
-
-
-  
   cancelBtn.addEventListener('click',()=>{ originalValue = point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });
   btnContainer.appendChild(btn0); btnContainer.appendChild(btn1);
   statusDiv.appendChild(statusLabel); statusDiv.appendChild(btnContainer); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
@@ -299,28 +254,6 @@ function createPopup(point, marker, index){
   commentCancel.addEventListener('click',()=>{ commentInput.value = originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
   commentDiv.appendChild(commentLabel); commentDiv.appendChild(commentInput); commentDiv.appendChild(commentSave); commentDiv.appendChild(commentCancel);
   container.appendChild(commentDiv);
-	// GT_NAME (read-only)
-const gtDiv = document.createElement('div');
-gtDiv.style.display='flex';
-gtDiv.style.flexDirection='column';
-gtDiv.style.gap='4px';
-
-const gtLabel = document.createElement('span');
-gtLabel.textContent='gt_name:';
-
-const gtInput = document.createElement('input');
-gtInput.type='text';
-gtInput.value = point.gt_name || "";
-gtInput.readOnly = true;
-gtInput.style.border='none';
-gtInput.style.background='transparent';
-gtInput.style.fontSize='13px';
-
-gtDiv.appendChild(gtLabel);
-gtDiv.appendChild(gtInput);
-
-container.appendChild(gtDiv);
-
 
   return container;
 }
@@ -341,11 +274,9 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       const status = (String(r.status) === "1") ? "1" : "0";
       const comment=r.comment||"";
 	  const count=r.count||"";
-	  const gt_name=r.gt_name||"";
-      csvData.push({lat,lon,status,comment,count,gt_name,marker:null});
+      csvData.push({lat,lon,status,comment,count});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
-      csvData[i].marker = marker;
 		
 		// подпись count над точкой
 if(count !== ""){
@@ -377,20 +308,7 @@ document.getElementById('downloadBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('locBtn').addEventListener('click',()=>{ autoFollow=true; requestUserLocation(); });
-document.getElementById('refreshBtn').addEventListener('click',()=>{
-
-  // сброс текущего индекса маршрута
-  nearestIndex = 0;
-
-  // очистить красный маршрут
-  if(remainingRouteLayer){
-    remainingRouteLayer.clearLayers();
-  }
-
-  // перестроить маршрут только по точкам status=0
-  buildOptimizedRoute();
-
-});
+document.getElementById('refreshBtn').addEventListener('click',()=>{ buildOptimizedRoute(); });
 document.getElementById('clearBtn').addEventListener('click',()=>{ 
   csvMarkersLayer.clearLayers(); 
   routeLayer.clearLayers(); 
@@ -400,52 +318,7 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   infoDistanceEl.textContent='Длина: —'; 
   infoDurationEl.textContent='Время: —'; 
 });
-document.getElementById('centerUserBtn').addEventListener('click',()=>{ 
-  if(userCoords){ 
-    autoFollow=true; 
-    centerOnUser(17); 
-  } 
-});
-
-	
-function getNextActiveRoutePointIndex(startIndex){
-
-  for(let i=startIndex;i<navRouteCoords.length;i++){
-
-    const p = navRouteCoords[i];
-
-    const found = csvData.find(pt =>
-      pt.status === "0" &&
-      Math.abs(pt.lat - p[0]) < 0.00001 &&
-      Math.abs(pt.lon - p[1]) < 0.00001
-    );
-
-    if(found) return i;
-
-  }
-
-  return startIndex;
-
-}
-
-	function getNextActiveRouteIndex(startIndex){
-
-  for(let i=startIndex;i<navRouteCoords.length;i++){
-
-    const coord = navRouteCoords[i];
-
-    const found = csvData.find(p =>
-      p.status === "0" &&
-      Math.abs(p.lat - coord[0]) < 0.0001 &&
-      Math.abs(p.lon - coord[1]) < 0.0001
-    );
-
-    if(found) return i;
-
-  }
-
-  return startIndex;
-}
+document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
 
 // ================= REAL GPS NAVIGATION =================
 function startRealNavigation(){
@@ -463,41 +336,21 @@ function startRealNavigation(){
     if(autoFollow) centerOnUser();
 
     // Остаток маршрута красной линией
-let nearestIndex = 0;
-
-if(navRouteCoords.length > 0){
-
-  let minDist = Infinity;
-
-  for(let i=0;i<navRouteCoords.length;i++){
-
-    const dx = userCoords[0] - navRouteCoords[i][0];
-    const dy = userCoords[1] - navRouteCoords[i][1];
-    const dist = dx*dx + dy*dy;
-
-    if(dist < minDist){
-      minDist = dist;
-      nearestIndex = i;
-    }
-
-  }
-
-  // перейти к следующей невыполненной точке
-  nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
-
-  remainingRouteLayer.clearLayers();
-
-  let points = [
-    [userCoords[0],userCoords[1]],
-    navRouteCoords[nearestIndex]
-  ];
-
-  L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-
-  let remainingPoints = navRouteCoords.slice(nearestIndex);
-
-  L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
-}
+    if(navRouteCoords.length>0){
+      let nearestIndex=0, minDist=Infinity;
+      for(let i=0;i<navRouteCoords.length;i++){
+        const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<minDist){ minDist=dist; nearestIndex=i; }
+      }
+		// пропустить выполненные точки
+nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+		
+      remainingRouteLayer.clearLayers();
+      let points=[[userCoords[0],userCoords[1]], navRouteCoords[nearestIndex]];
+      L.polyline(points,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
+      let remainingPoints=navRouteCoords.slice(nearestIndex);
+      L.polyline(remainingPoints,{color:'red',weight:3,opacity:0.9}).addTo(remainingRouteLayer);
     
 	// Жёлтая линия 200м
       let yellowLineCoords=[[userCoords[0],userCoords[1]]];

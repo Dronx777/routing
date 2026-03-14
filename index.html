@@ -97,31 +97,19 @@ function centerOnUser(zoom=15){ if(userCoords) map.flyTo(userCoords,zoom,{durati
 // ===== Автообновление статуса точек при попадании в радиус пользователя =====
 function checkPointsInUserRadius() {
   if(!userCoords) return;
-
-  csvData.forEach((p)=>{
+  let changed = false;
+  csvData.forEach((p,i)=>{
     if(p.status==="0"){
-
-      const d = L.latLng(userCoords).distanceTo([p.lat,p.lon]);
-
+      const d = L.latLng(userCoords).distanceTo(L.latLng([p.lat,p.lon]));
       if(d <= 50){
-  p.status="1";
-
-  if(p.marker){
-    p.marker.setStyle({
-      color:'green',
-      fillColor:'green'
-    });
-
-    // обновить popup чтобы статус стал "Выполнено"
-    p.marker.setPopupContent(createPopup(p, p.marker, csvData.indexOf(p)));
-  }
-}
-
+        p.status="1";
+        csvMarkersLayer.getLayers()[i].setStyle({color:'green', fillColor:'green'});
+        changed = true;
+      }
     }
   });
-
+  if(changed) buildOptimizedRoute(); // перестроить маршрут с исключением точек со статусом 1
 }
-
 
 function updateUserPosition(pos){ 
   userCoords=[pos.coords.latitude,pos.coords.longitude]; 
@@ -140,9 +128,6 @@ function requestUserLocation(){
 
 // ================= Build OSRM Route =================
 function buildOptimizedRoute(){
-	navRouteCoords = [];
-if(remainingRouteLayer) remainingRouteLayer.clearLayers();
-
   routeLayer.clearLayers();
   activeRouteCoords = csvData.filter(p => String(p.status) === "0").map(p => [Number(p.lat), Number(p.lon)]);
   osrmCoords = [...activeRouteCoords];
@@ -250,28 +235,6 @@ function createPopup(point, marker, index){
   commentCancel.addEventListener('click',()=>{ commentInput.value = originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
   commentDiv.appendChild(commentLabel); commentDiv.appendChild(commentInput); commentDiv.appendChild(commentSave); commentDiv.appendChild(commentCancel);
   container.appendChild(commentDiv);
-	// GT_NAME (read-only)
-const gtDiv = document.createElement('div');
-gtDiv.style.display='flex';
-gtDiv.style.flexDirection='column';
-gtDiv.style.gap='4px';
-
-const gtLabel = document.createElement('span');
-gtLabel.textContent='gt_name:';
-
-const gtInput = document.createElement('input');
-gtInput.type='text';
-gtInput.value = point.gt_name || "";
-gtInput.readOnly = true;
-gtInput.style.border='none';
-gtInput.style.background='transparent';
-gtInput.style.fontSize='13px';
-
-gtDiv.appendChild(gtLabel);
-gtDiv.appendChild(gtInput);
-
-container.appendChild(gtDiv);
-
 
   return container;
 }
@@ -292,11 +255,9 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       const status = (String(r.status) === "1") ? "1" : "0";
       const comment=r.comment||"";
 	  const count=r.count||"";
-	  const gt_name=r.gt_name||"";
-      csvData.push({lat,lon,status,comment,count,gt_name,marker:null});
+      csvData.push({lat,lon,status,comment,count});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
-      csvData[i].marker = marker;
 		
 		// подпись count над точкой
 if(count !== ""){
@@ -338,12 +299,7 @@ document.getElementById('clearBtn').addEventListener('click',()=>{
   infoDistanceEl.textContent='Длина: —'; 
   infoDurationEl.textContent='Время: —'; 
 });
-document.getElementById('centerUserBtn').addEventListener('click',()=>{ 
-  if(userCoords){ 
-    autoFollow=true; 
-    centerOnUser(17); 
-  } 
-});
+document.getElementById('centerUserBtn').addEventListener('click',()=>{ if(userCoords){ autoFollow=true; centerOnUser(); } });
 
 // ================= REAL GPS NAVIGATION =================
 function startRealNavigation(){

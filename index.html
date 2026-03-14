@@ -82,6 +82,7 @@ let userCoords = null;
 let activeRouteCoords = [];
 let osrmCoords = [];
 let userRadius = null;
+let nearestIndex = 0;
 
 let navRouteCoords = [];
 let navWatchId = null;
@@ -219,12 +220,26 @@ function createPopup(point, marker, index){
   const cancelBtn = document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none'; cancelBtn.style.fontSize='14px';
   btn0.addEventListener('click',()=>{ originalValue='0'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
   btn1.addEventListener('click',()=>{ originalValue='1'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
-  saveBtn.addEventListener('click',()=>{
-    point.status = originalValue;
-    csvData[index].status = originalValue;
-    marker.setStyle({color: originalValue==='0'?'red':'green', fillColor: originalValue==='0'?'red':'green'});
-    saveBtn.style.display='none'; cancelBtn.style.display='none';
-    buildOptimizedRoute();
+ saveBtn.addEventListener('click',()=>{
+  point.status = originalValue;
+  csvData[index].status = originalValue;
+
+  marker.setStyle({
+    color: originalValue==='0'?'red':'green',
+    fillColor: originalValue==='0'?'red':'green'
+  });
+
+  // если точка выполнена — перейти к следующей
+  if(originalValue === "1"){
+    nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+  }
+
+  saveBtn.style.display='none';
+  cancelBtn.style.display='none';
+
+  buildOptimizedRoute();
+});
+
   });
   cancelBtn.addEventListener('click',()=>{ originalValue = point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });
   btnContainer.appendChild(btn0); btnContainer.appendChild(btn1);
@@ -384,7 +399,8 @@ function startRealNavigation(){
 
     // Остаток маршрута красной линией
     if(navRouteCoords.length>0){
-      let nearestIndex=0, minDist=Infinity;
+      let minDist=Infinity;
+		nearestIndex=0;
       for(let i=0;i<navRouteCoords.length;i++){
         const dx=userCoords[0]-navRouteCoords[i][0], dy=userCoords[1]-navRouteCoords[i][1];
         const dist=Math.sqrt(dx*dx+dy*dy);

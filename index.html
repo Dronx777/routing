@@ -227,25 +227,37 @@ function createPopup(point, marker, index){
   const cancelBtn = document.createElement('button'); cancelBtn.textContent='❌'; cancelBtn.style.display='none'; cancelBtn.style.fontSize='14px';
   btn0.addEventListener('click',()=>{ originalValue='0'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
   btn1.addEventListener('click',()=>{ originalValue='1'; updateButtons(); saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; });
- saveBtn.addEventListener('click',()=>{
+ 
+	saveBtn.addEventListener('click',()=>{
+
   point.status = originalValue;
   csvData[index].status = originalValue;
 
   marker.setStyle({
-    color: originalValue==='0'?'red':'green',
-    fillColor: originalValue==='0'?'red':'green'
+    color: originalValue==='0' ? 'red' : 'green',
+    fillColor: originalValue==='0' ? 'red' : 'green'
   });
 
-  // если точка выполнена — перейти к следующей
+  // если точка выполнена
   if(originalValue === "1"){
+
+    // перейти к следующей точке маршрута
     nearestIndex = getNextActiveRoutePointIndex(nearestIndex);
+
+    // очистить красный маршрут
+    if(remainingRouteLayer){
+      remainingRouteLayer.clearLayers();
+    }
   }
 
   saveBtn.style.display='none';
   cancelBtn.style.display='none';
 
+  // перестроить основной маршрут (синий)
   buildOptimizedRoute();
+
 });
+
 
   
   cancelBtn.addEventListener('click',()=>{ originalValue = point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });

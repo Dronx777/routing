@@ -249,6 +249,28 @@ function createPopup(point, marker, index){
   commentCancel.addEventListener('click',()=>{ commentInput.value = originalComment; commentSave.style.display='none'; commentCancel.style.display='none'; });
   commentDiv.appendChild(commentLabel); commentDiv.appendChild(commentInput); commentDiv.appendChild(commentSave); commentDiv.appendChild(commentCancel);
   container.appendChild(commentDiv);
+	// GT_NAME (read-only)
+const gtDiv = document.createElement('div');
+gtDiv.style.display='flex';
+gtDiv.style.flexDirection='column';
+gtDiv.style.gap='4px';
+
+const gtLabel = document.createElement('span');
+gtLabel.textContent='gt_name:';
+
+const gtInput = document.createElement('input');
+gtInput.type='text';
+gtInput.value = point.gt_name || "";
+gtInput.readOnly = true;
+gtInput.style.border='none';
+gtInput.style.background='transparent';
+gtInput.style.fontSize='13px';
+
+gtDiv.appendChild(gtLabel);
+gtDiv.appendChild(gtInput);
+
+container.appendChild(gtDiv);
+
 
   return container;
 }
@@ -269,7 +291,8 @@ document.getElementById('csvFile').addEventListener('change', function(ev){
       const status = (String(r.status) === "1") ? "1" : "0";
       const comment=r.comment||"";
 	  const count=r.count||"";
-      csvData.push({lat,lon,status,comment,count,marker:null});
+	  const gt_name=r.gt_name||"";
+      csvData.push({lat,lon,status,comment,count,gt_name,marker:null});
       const color=status==="0"?'red':'green';
       const marker=L.circleMarker([lat,lon],{radius:6,color:color,fillColor:color,fillOpacity:0.8}).addTo(csvMarkersLayer);
       csvData[i].marker = marker;

@@ -240,7 +240,7 @@ function createPopup(point, marker, index){
   buildOptimizedRoute();
 });
 
-  });
+  
   cancelBtn.addEventListener('click',()=>{ originalValue = point.status; updateButtons(); saveBtn.style.display='none'; cancelBtn.style.display='none'; });
   btnContainer.appendChild(btn0); btnContainer.appendChild(btn1);
   statusDiv.appendChild(statusLabel); statusDiv.appendChild(btnContainer); statusDiv.appendChild(saveBtn); statusDiv.appendChild(cancelBtn);
